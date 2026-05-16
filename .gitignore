@@ -1,0 +1,106 @@
+# =====================================================================
+# DADOS SENSÍVEIS — nunca versionar
+# Estes arquivos contêm CPFs, CNPJs, valores e identificadores
+# financeiros reais. Ficam só na máquina do dono e no Supabase Storage.
+# =====================================================================
+
+# Extratos bancários (centenas de CPFs de clientes)
+extrato*.pdf
+extrato*.txt
+*extrato*.pdf
+*extrato*.txt
+
+# Relatórios de venda do PDV (CPF/CNPJ de clientes em vendas faturadas)
+RELAT*RIO*DE*VENDA*.pdf
+relatorio*.txt
+relatorio*.pdf
+
+# NFs em aberto (boletos com linha digitável, dados bancários do dono)
+NF EM ABERTO/
+*boleto*.pdf
+*DARF*.pdf
+*GFD*.pdf
+*FGTS*.pdf
+WhatsApp*.jpeg
+WhatsApp*.jpg
+
+# Ficha técnica completa (custos internos, propriedade intelectual)
+Ficha*T*cnica*.docx
+ficha.xml
+ficha.txt
+
+# DRE e qualquer planilha financeira (valores reais, retiradas dos sócios)
+DRE*.xlsx
+DRE*.xls
+DRE*.pdf
+*DRE*.xlsx
+*Quadro*Abril*.xlsx
+*Quadro*Maio*.xlsx
+*.xlsx
+*.xls
+*.csv
+
+# Arquivos temporários de extração
+*.tmp
+b17893.txt
+b17926.txt
+darf.txt
+gfd.txt
+
+# Anexos genéricos do dono (qualquer coisa que ele jogue na raiz pra alimentar)
+anexos/
+uploads/
+
+# =====================================================================
+# Node / Next.js / TypeScript
+# =====================================================================
+node_modules/
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+
+# =====================================================================
+# Variáveis de ambiente — Supabase keys, JWT secret, OpenAI key etc
+# =====================================================================
+.env
+.env.local
+.env*.local
+.env.production
+.env.development.local
+
+# =====================================================================
+# Sistema operacional
+# =====================================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+Design sem nome.png
+
+# =====================================================================
+# IDEs e ferramentas
+# =====================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+.cursor/
+.claude/
+
+# =====================================================================
+# Logs e cache
+# =====================================================================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.cache/
+coverage/
+
+# =====================================================================
+# Supabase local
+# =====================================================================
+supabase/.branches/
+supabase/.temp/
+supabase/seed.local.sql
