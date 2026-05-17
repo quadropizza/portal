@@ -31,9 +31,21 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Quadrô Portal",
+  title: "Quadrô · Portal",
   description: "Plataforma de gestão da Quadrô Pizza",
-  robots: { index: false, follow: false }, // uso interno, não indexar
+  robots: { index: false, follow: false },
+  icons: {
+    icon: [
+      { url: "/icon.png", type: "image/png", sizes: "any" },
+    ],
+    apple: "/apple-icon.png",
+    shortcut: "/icon.png",
+  },
+  manifest: "/manifest.json",
+  themeColor: "#D32027",
+  appleWebApp: {
+    capable: true, statusBarStyle: "black-translucent", title: "Quadrô",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

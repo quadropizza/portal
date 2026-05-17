@@ -10,17 +10,24 @@ import { CategoriaNovaModal } from "@/components/ui/categoria-nova-modal";
 
 type Cat = { id: string; nome: string; grupo: string };
 type Forn = { id: string; nome: string; apelido: string | null };
+type NfAb = { id: string; numero: string | null; valor_total: number; valor_pago: number; data_vencimento: string; categoria_id: string | null; fornecedor_id: string | null; fornecedor: { apelido: string | null; nome: string } | null };
+type CustoFix = { id: string; nome: string; valor_estimado: number; categoria_id: string | null; fornecedor_id: string | null; forma_pagamento: string };
 
 export function SaidaForm({
-  modo, saida, categorias, fornecedores,
+  modo, saida, categorias, fornecedores, nfsAbertas = [], custosFixos = [],
 }: {
   modo: "novo" | "editar";
   saida?: { id: string; data: string; descricao: string | null; valor: number; categoria_id: string | null; fornecedor_id: string | null; forma_pagamento: string | null };
   categorias: Cat[]; fornecedores: Forn[];
+  nfsAbertas?: NfAb[]; custosFixos?: CustoFix[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
+
+  const [tipoVinculo, setTipoVinculo] = useState<"avulsa" | "nf" | "custo">("avulsa");
+  const [nfSelecionada, setNfSelecionada] = useState("");
+  const [custoSelecionado, setCustoSelecionado] = useState("");
 
   const [modalCat, setModalCat] = useState(false);
   const [data, setData] = useState(saida?.data ?? new Date().toISOString().split("T")[0]);
@@ -29,6 +36,31 @@ export function SaidaForm({
   const [categoria, setCategoria] = useState(saida?.categoria_id ?? "");
   const [fornecedor, setFornecedor] = useState(saida?.fornecedor_id ?? "");
   const [forma, setForma] = useState(saida?.forma_pagamento ?? "pix");
+
+  // Auto-preenche quando seleciona uma NF
+  function selecionarNf(id: string) {
+    setNfSelecionada(id);
+    if (!id) return;
+    const nf = nfsAbertas.find((n) => n.id === id);
+    if (!nf) return;
+    const restante = Number(nf.valor_total) - Number(nf.valor_pago);
+    setValor(restante.toFixed(2));
+    setDescricao(`Pgto NF ${nf.numero ?? ""} · ${nf.fornecedor?.apelido ?? nf.fornecedor?.nome ?? ""}`.trim());
+    if (nf.categoria_id) setCategoria(nf.categoria_id);
+    if (nf.fornecedor_id) setFornecedor(nf.fornecedor_id);
+  }
+
+  function selecionarCusto(id: string) {
+    setCustoSelecionado(id);
+    if (!id) return;
+    const c = custosFixos.find((x) => x.id === id);
+    if (!c) return;
+    setValor(c.valor_estimado.toFixed(2));
+    setDescricao(`Custo fixo: ${c.nome}`);
+    if (c.categoria_id) setCategoria(c.categoria_id);
+    if (c.fornecedor_id) setFornecedor(c.fornecedor_id);
+    if (c.forma_pagamento) setForma(c.forma_pagamento);
+  }
 
   function salvar(e: React.FormEvent) {
     e.preventDefault();
@@ -41,6 +73,8 @@ export function SaidaForm({
     fd.set("categoria_id", categoria);
     fd.set("fornecedor_id", fornecedor);
     fd.set("forma_pagamento", forma);
+    if (tipoVinculo === "nf" && nfSelecionada) fd.set("obrigacao_id", nfSelecionada);
+    if (tipoVinculo === "custo" && custoSelecionado) fd.set("custo_fixo_id", custoSelecionado);
     startTransition(async () => {
       const r = await salvarSaidaManual(fd);
       if (r.ok) router.push("/financeiro/saidas");
@@ -58,6 +92,45 @@ export function SaidaForm({
   return (
     <Card>
       <form onSubmit={salvar} className="space-y-4">
+        {modo === "novo" && (
+          <div className="bg-amarelo/20 border-3 border-preto rounded-lg p-3">
+            <div className="eyebrow mb-2">// O QUE É ESSA SAÍDA?</div>
+            <div className="flex gap-2 flex-wrap mb-2">
+              <button type="button" onClick={() => { setTipoVinculo("avulsa"); setNfSelecionada(""); setCustoSelecionado(""); }}
+                className={`px-3 py-1.5 border-2 border-preto rounded text-xs font-[family-name:var(--font-subtitulo)] ${tipoVinculo==="avulsa" ? "bg-vermelho text-white" : "bg-white"}`}>
+                Despesa avulsa
+              </button>
+              <button type="button" onClick={() => setTipoVinculo("nf")}
+                className={`px-3 py-1.5 border-2 border-preto rounded text-xs font-[family-name:var(--font-subtitulo)] ${tipoVinculo==="nf" ? "bg-vermelho text-white" : "bg-white"}`}>
+                Pagamento de NF em aberto ({nfsAbertas.length})
+              </button>
+              <button type="button" onClick={() => setTipoVinculo("custo")}
+                className={`px-3 py-1.5 border-2 border-preto rounded text-xs font-[family-name:var(--font-subtitulo)] ${tipoVinculo==="custo" ? "bg-vermelho text-white" : "bg-white"}`}>
+                Custo fixo do mês ({custosFixos.length})
+              </button>
+            </div>
+            {tipoVinculo === "nf" && (
+              <select value={nfSelecionada} onChange={(e) => selecionarNf(e.target.value)}
+                className="w-full px-3 py-2 border-2 border-preto rounded bg-white text-sm">
+                <option value="">— escolher NF —</option>
+                {nfsAbertas.map((n) => (
+                  <option key={n.id} value={n.id}>
+                    NF {n.numero ?? "?"} · {n.fornecedor?.apelido ?? n.fornecedor?.nome ?? "?"} · R$ {(Number(n.valor_total)-Number(n.valor_pago)).toFixed(2)} · vence {new Date(n.data_vencimento).toLocaleDateString("pt-BR")}
+                  </option>
+                ))}
+              </select>
+            )}
+            {tipoVinculo === "custo" && (
+              <select value={custoSelecionado} onChange={(e) => selecionarCusto(e.target.value)}
+                className="w-full px-3 py-2 border-2 border-preto rounded bg-white text-sm">
+                <option value="">— escolher custo fixo —</option>
+                {custosFixos.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nome} · ~R$ {Number(c.valor_estimado).toFixed(2)}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="eyebrow block mb-1">Data</label>

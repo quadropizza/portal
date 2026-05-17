@@ -194,22 +194,46 @@ export async function salvarSaidaManual(formData: FormData): Promise<{ ok: boole
   if (!empresaId) return { ok: false, erro: "sem empresa" };
 
   const id = formData.get("id") as string | null;
+  const obrigacaoId = (formData.get("obrigacao_id") as string) || null;
+  const custoFixoId = (formData.get("custo_fixo_id") as string) || null;
+  const data = String(formData.get("data"));
+  const valor = Number(formData.get("valor"));
+
   const payload = {
     empresa_id: empresaId,
-    data: String(formData.get("data")),
+    data,
     descricao_original: String(formData.get("descricao")),
     descricao: String(formData.get("descricao")),
-    valor: Number(formData.get("valor")),
+    valor,
     categoria_id: (formData.get("categoria_id") as string) || null,
     fornecedor_id: (formData.get("fornecedor_id") as string) || null,
     forma_pagamento: String(formData.get("forma_pagamento") || "manual"),
+    obrigacao_id: obrigacaoId,
   };
 
-  if (id) await supabase.from("saida").update(payload).eq("id", id);
-  else await supabase.from("saida").insert(payload);
+  let saidaId: string | null = id;
+  if (id) {
+    await supabase.from("saida").update(payload).eq("id", id);
+  } else {
+    const { data: ins } = await supabase.from("saida").insert(payload).select("id").single();
+    saidaId = (ins as { id: string } | null)?.id ?? null;
+  }
+
+  if (custoFixoId && saidaId) {
+    const d = new Date(data);
+    await supabase.from("custo_fixo_pagamento").upsert({
+      custo_fixo_id: custoFixoId,
+      ano: d.getUTCFullYear(),
+      mes: d.getUTCMonth() + 1,
+      valor_pago: valor, data_pagamento: data, saida_id: saidaId,
+    }, { onConflict: "custo_fixo_id,ano,mes" });
+  }
 
   revalidatePath("/financeiro/saidas");
+  revalidatePath("/financeiro/custos-fixos");
+  revalidatePath("/notas-fiscais");
   revalidatePath("/dre");
+  revalidatePath("/visao-geral");
   return { ok: true };
 }
 
