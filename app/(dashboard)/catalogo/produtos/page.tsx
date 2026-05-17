@@ -19,17 +19,23 @@ export default async function CatalogoPage() {
   const mesAntAno = hoje.getMonth() === 0 ? hoje.getFullYear() - 1 : hoje.getFullYear();
   const mesAntMes = hoje.getMonth() === 0 ? 12 : hoje.getMonth();
 
-  const [prodR, dreAntR, vendasMesAntR] = await Promise.all([
+  const [prodR, dreAntR, vendasMesAntR, comboCustosR, comboCompsR] = await Promise.all([
     supabase.from("produto")
       .select(`id, codigo, nome, categoria, preco_venda, produzido_em_lote, ativo,
                fichas:ficha_tecnica(id, ativa, itens:ficha_tecnica_item(quantidade, unidade,
                  insumo:insumo(nome, custo_medio_atual, custo_origem)))`)
       .is("deleted_at", null).order("categoria").order("codigo"),
-    // Despesas fixas do mês anterior (folha + aluguel + bancárias + impostos + outros)
     supabase.from("dre_mensal").select("*").eq("ano", mesAntAno).eq("mes", mesAntMes).maybeSingle(),
-    // Total de unidades vendidas no mês anterior pra ratear
     supabase.from("vendas_por_produto").select("qtd_total").eq("ano", mesAntAno).eq("mes", mesAntMes),
+    supabase.from("combo_custo").select("*"),
+    supabase.from("combo_componente").select("combo_id, quantidade, produto:produto(nome, preco_venda)"),
   ]);
+
+  const comboCustoMap = new Map(((comboCustosR.data ?? []) as any[]).map(c => [c.combo_id, Number(c.custo_total)]));
+  const comboCompsByCombo = ((comboCompsR.data ?? []) as any[]).reduce<Record<string, Array<{ quantidade: number; produto: { nome: string; preco_venda: number } }>>>((acc, c: any) => {
+    (acc[c.combo_id] ||= []).push({ quantidade: c.quantidade, produto: c.produto });
+    return acc;
+  }, {});
 
   const produtos = (prodR.data ?? []) as any[];
   const dreAnt: any = dreAntR.data ?? null;
@@ -45,22 +51,33 @@ export default async function CatalogoPage() {
   const rateioPorUnidade = unidadesVendidasMesAnt > 0 ? fixasMesAnt / unidadesVendidasMesAnt : 0;
 
   function calcular(p: any) {
-    const ficha = p.fichas?.find((f: any) => f.ativa);
-    let custo = 0; let seed = false;
-    if (ficha?.itens) {
-      for (const it of ficha.itens) {
-        const c = Number(it.insumo?.custo_medio_atual ?? 0);
-        custo += c * Number(it.quantidade);
-        if (it.insumo?.custo_origem === "seed") seed = true;
+    let custo = 0; let seed = false; let semFicha = false;
+    let ficha = null;
+    let componentes: Array<{ quantidade: number; produto: { nome: string; preco_venda: number } }> = [];
+
+    if (p.categoria === "combo") {
+      // Combo: custo vem dos componentes
+      custo = comboCustoMap.get(p.id) ?? 0;
+      componentes = comboCompsByCombo[p.id] ?? [];
+      semFicha = componentes.length === 0;
+    } else {
+      ficha = p.fichas?.find((f: any) => f.ativa);
+      semFicha = !ficha;
+      if (ficha?.itens) {
+        for (const it of ficha.itens) {
+          const c = Number(it.insumo?.custo_medio_atual ?? 0);
+          custo += c * Number(it.quantidade);
+          if (it.insumo?.custo_origem === "seed") seed = true;
+        }
       }
     }
+
     const preco = Number(p.preco_venda ?? 0);
     const lucroBruto = preco - custo;
     const margemBruta = preco > 0 ? lucroBruto / preco : 0;
-    // Lucro líquido por unidade = lucro bruto − rateio fixo
     const lucroLiq = lucroBruto - rateioPorUnidade;
     const margemLiq = preco > 0 ? lucroLiq / preco : 0;
-    return { ficha, custo, lucroBruto, margemBruta, lucroLiq, margemLiq, algumSeed: seed, semFicha: !ficha };
+    return { ficha, componentes, custo, lucroBruto, margemBruta, lucroLiq, margemLiq, algumSeed: seed, semFicha, isCombo: p.categoria === "combo" };
   }
 
   const grupos = produtos.reduce<Record<string, any[]>>((acc, p) => {
@@ -109,7 +126,7 @@ export default async function CatalogoPage() {
             </div>
             <div className="space-y-2">
               {items.map((p: any) => {
-                const { ficha, custo, lucroBruto, margemBruta, lucroLiq, margemLiq, algumSeed, semFicha } = calcular(p);
+                const { ficha, componentes, custo, lucroBruto, margemBruta, lucroLiq, margemLiq, algumSeed, semFicha, isCombo } = calcular(p);
                 return (
                   <Card key={p.id} className={!p.ativo ? "opacity-50" : ""}>
                     <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -131,8 +148,18 @@ export default async function CatalogoPage() {
                             ))}
                           </ul>
                         )}
+                        {isCombo && componentes.length > 0 && (
+                          <ul className="mt-1.5 text-[11px] text-preto/60 flex flex-wrap gap-x-3 gap-y-0.5 font-[family-name:var(--font-mono)]">
+                            {componentes.map((c, i) => (
+                              <li key={i}>📦 {c.quantidade}× {c.produto.nome}</li>
+                            ))}
+                          </ul>
+                        )}
                         {semFicha && p.produzido_em_lote && (
                           <div className="mt-1 text-xs text-vermelho">Sem ficha técnica</div>
+                        )}
+                        {isCombo && semFicha && (
+                          <div className="mt-1 text-xs text-vermelho">Sem componentes — clica "definir combo"</div>
                         )}
                       </div>
 
@@ -149,9 +176,15 @@ export default async function CatalogoPage() {
                       </div>
 
                       <div className="flex flex-col gap-1 shrink-0">
-                        <Link href={`/catalogo/fichas-tecnicas/${p.id}`} className="text-xs font-[family-name:var(--font-subtitulo)] text-vermelho hover:underline whitespace-nowrap">
-                          {ficha ? "editar ficha" : "criar ficha"} →
-                        </Link>
+                        {isCombo ? (
+                          <Link href={`/catalogo/combos/${p.id}`} className="text-xs font-[family-name:var(--font-subtitulo)] text-vermelho hover:underline whitespace-nowrap">
+                            {componentes.length > 0 ? "editar combo" : "definir combo"} →
+                          </Link>
+                        ) : (
+                          <Link href={`/catalogo/fichas-tecnicas/${p.id}`} className="text-xs font-[family-name:var(--font-subtitulo)] text-vermelho hover:underline whitespace-nowrap">
+                            {ficha ? "editar ficha" : "criar ficha"} →
+                          </Link>
+                        )}
                         <Link href={`/catalogo/produtos/${p.id}`} className="text-xs font-[family-name:var(--font-subtitulo)] text-preto/60 hover:text-vermelho whitespace-nowrap">
                           editar produto →
                         </Link>
