@@ -88,6 +88,33 @@ export async function desfazerPagamento(formData: FormData) {
   revalidatePath("/financeiro/saidas");
 }
 
+export async function sugerirSaidaParaCusto(custoId: string): Promise<{ saida_id: string | null; saida_data: string | null; saida_desc: string | null; saida_valor: number | null; motivo: string | null }> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("sugerir_saida_para_custo", { p_custo: custoId });
+  const r = ((data ?? []) as any[])[0];
+  return r ?? { saida_id: null, saida_data: null, saida_desc: null, saida_valor: null, motivo: null };
+}
+
+export async function vincularSaidaAoCusto(formData: FormData): Promise<{ ok: boolean }> {
+  const supabase = await createClient();
+  const custoId = String(formData.get("custo_id"));
+  const saidaId = String(formData.get("saida_id"));
+  const ano = Number(formData.get("ano"));
+  const mes = Number(formData.get("mes"));
+
+  const { data: s } = await supabase.from("saida").select("data, valor").eq("id", saidaId).maybeSingle();
+  if (!s) return { ok: false };
+  const saida = s as any;
+  await supabase.from("custo_fixo_pagamento").upsert({
+    custo_fixo_id: custoId, ano, mes,
+    valor_pago: saida.valor, data_pagamento: saida.data, saida_id: saidaId,
+  }, { onConflict: "custo_fixo_id,ano,mes" });
+
+  revalidatePath("/financeiro/custos-fixos");
+  revalidatePath("/financeiro/saidas");
+  return { ok: true };
+}
+
 export async function deletarCustoFixo(formData: FormData) {
   const id = String(formData.get("id"));
   const supabase = await createClient();

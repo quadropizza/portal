@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fmtBR, fmtDataBR } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, Plus } from "lucide-react";
 import { UploadNfe } from "./upload-nfe";
+import { SugerirSaidaNf } from "./sugerir-saida";
 
 export const dynamic = "force-dynamic";
 
@@ -90,7 +91,10 @@ export default async function NotasPage() {
                       {o.status === "em_aberto" && (vencido ? <span className="text-vermelho">vencido</span> : <span className="text-amarelo-escuro">em aberto</span>)}
                       {o.status === "parcialmente_pago" && <span className="text-amarelo-escuro">parcial</span>}
                     </td>
-                    <td className="px-3 py-2"><Link href={`/notas-fiscais/${o.id}`} className="text-xs text-vermelho hover:underline">ver</Link></td>
+                    <td className="px-3 py-2">
+                      {o.status === "em_aberto" && <SugerirSaidaNf nfId={o.id} />}
+                      <Link href={`/notas-fiscais/${o.id}`} className="text-xs text-vermelho hover:underline ml-2">ver</Link>
+                    </td>
                   </tr>
                 );
               })}

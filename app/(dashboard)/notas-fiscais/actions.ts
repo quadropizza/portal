@@ -256,6 +256,42 @@ export async function pagarObrigacao(formData: FormData): Promise<{ ok: boolean;
   return { ok: true };
 }
 
+export async function sugerirSaidaParaNf(nfId: string): Promise<{ saida_id: string | null; saida_data: string | null; saida_desc: string | null; saida_valor: number | null; motivo: string | null }> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("sugerir_saida_para_nf", { p_nf: nfId });
+  const r = ((data ?? []) as any[])[0];
+  return r ?? { saida_id: null, saida_data: null, saida_desc: null, saida_valor: null, motivo: null };
+}
+
+export async function vincularSaidaANf(formData: FormData): Promise<{ ok: boolean; erro?: string }> {
+  const supabase = await createClient();
+  const nfId = String(formData.get("nf_id"));
+  const saidaId = String(formData.get("saida_id"));
+
+  const { data: s } = await supabase.from("saida").select("valor, categoria_id").eq("id", saidaId).maybeSingle();
+  if (!s) return { ok: false, erro: "saída não encontrada" };
+  const saida = s as any;
+  const { data: nf } = await supabase.from("obrigacao_a_pagar").select("valor_total, valor_pago, categoria_id").eq("id", nfId).maybeSingle();
+  if (!nf) return { ok: false, erro: "NF não encontrada" };
+  const o = nf as any;
+
+  await supabase.from("saida").update({
+    obrigacao_id: nfId,
+    categoria_id: saida.categoria_id ?? o.categoria_id,
+  }).eq("id", saidaId);
+
+  const novoPago = Number(o.valor_pago) + Number(saida.valor);
+  await supabase.from("obrigacao_a_pagar").update({
+    valor_pago: novoPago,
+    status: novoPago >= Number(o.valor_total) ? "pago" : "parcialmente_pago",
+  }).eq("id", nfId);
+
+  revalidatePath("/notas-fiscais");
+  revalidatePath("/financeiro/saidas");
+  revalidatePath("/dre");
+  return { ok: true };
+}
+
 export async function deletarObrigacao(formData: FormData) {
   const id = String(formData.get("id"));
   const supabase = await createClient();

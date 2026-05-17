@@ -6,7 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Trash2, Plus, X } from "lucide-react";
 import { fmtBR } from "@/lib/utils";
-import { salvarCustoFixo, marcarCustoPago, desfazerPagamento, deletarCustoFixo } from "./actions";
+import { salvarCustoFixo, marcarCustoPago, desfazerPagamento, deletarCustoFixo, sugerirSaidaParaCusto, vincularSaidaAoCusto } from "./actions";
+import { Sparkles } from "lucide-react";
 
 type Custo = {
   id: string; nome: string; valor_estimado: number; dia_vencimento: number | null;
@@ -26,6 +27,26 @@ export function CustosFixosManager({ custos, pagamentosMes, categorias, forneced
 
   const pagMap = new Map(pagamentosMes.map((p) => [p.custo_fixo_id, p]));
   const catMap = new Map(categorias.map((c) => [c.id, c.nome]));
+  const [sugestoes, setSugestoes] = useState<Record<string, { saida_id: string | null; saida_data: string | null; saida_desc: string | null; saida_valor: number | null; motivo: string | null }>>({});
+  const [carregandoSug, setCarregandoSug] = useState(false);
+
+  async function buscarTodasSugestoes() {
+    setCarregandoSug(true);
+    const novas: Record<string, any> = {};
+    for (const c of custos) {
+      if (pagMap.has(c.id)) continue;
+      const s = await sugerirSaidaParaCusto(c.id);
+      if (s.saida_id) novas[c.id] = s;
+    }
+    setSugestoes(novas); setCarregandoSug(false);
+  }
+
+  function vincular(custoId: string, saidaId: string) {
+    const fd = new FormData();
+    fd.set("custo_id", custoId); fd.set("saida_id", saidaId);
+    fd.set("ano", String(ano)); fd.set("mes", String(mes));
+    startTransition(async () => { await vincularSaidaAoCusto(fd); router.refresh(); });
+  }
   const totalEstimado = custos.reduce((s, c) => s + Number(c.valor_estimado), 0);
   const totalPago = pagamentosMes.reduce((s, p) => s + Number(p.valor_pago), 0);
   const totalPendente = custos.filter((c) => !pagMap.has(c.id)).reduce((s, c) => s + Number(c.valor_estimado), 0);
@@ -72,7 +93,10 @@ export function CustosFixosManager({ custos, pagamentosMes, categorias, forneced
         </Card>
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-between items-center">
+        <Button onClick={buscarTodasSugestoes} disabled={carregandoSug} variant="creme">
+          <Sparkles size={14} /> {carregandoSug ? "buscando..." : "Buscar saídas que casam"}
+        </Button>
         <Button onClick={() => setNovoAberto(true)} variant="vermelho"><Plus size={14} /> Novo custo fixo</Button>
       </div>
 
@@ -106,6 +130,13 @@ export function CustosFixosManager({ custos, pagamentosMes, categorias, forneced
                       <span className="text-xs text-verde flex items-center justify-center gap-1">
                         <CheckCircle2 size={12} /> pago {fmtBR(pag.valor_pago)}
                       </span>
+                    ) : sugestoes[c.id] ? (
+                      <div className="text-xs space-y-0.5">
+                        <div className="bg-amarelo border border-preto px-1.5 py-0.5 rounded text-[10px]">
+                          <Sparkles size={9} className="inline mr-0.5" />
+                          <strong>{fmtBR(Number(sugestoes[c.id].saida_valor))}</strong> · {new Date(sugestoes[c.id].saida_data!).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                        </div>
+                      </div>
                     ) : (
                       <span className="text-xs text-vermelho">pendente</span>
                     )}
@@ -113,6 +144,11 @@ export function CustosFixosManager({ custos, pagamentosMes, categorias, forneced
                   <td className="px-3 py-2 text-right">
                     {pag ? (
                       <button onClick={() => desfazer(pag.id)} className="text-xs text-preto/40 hover:text-vermelho">desfazer</button>
+                    ) : sugestoes[c.id]?.saida_id ? (
+                      <button onClick={() => vincular(c.id, sugestoes[c.id].saida_id!)} disabled={pending}
+                        className="text-xs bg-verde text-white px-2 py-1 rounded font-[family-name:var(--font-subtitulo)]">
+                        ✓ aceitar
+                      </button>
                     ) : (
                       <button onClick={() => marcarPago(c)} disabled={pending}
                         className="text-xs bg-vermelho text-white px-2 py-1 rounded font-[family-name:var(--font-subtitulo)]">
