@@ -1,188 +1,232 @@
 import Link from "next/link";
 import { EyebrowTitle } from "@/components/ui/eyebrow-title";
-import { Card, StatCard } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { PainelLacunas } from "@/components/painel-lacunas";
-import { MetricasBasicas } from "@/components/metricas-basicas";
 import { createClient } from "@/lib/supabase/server";
-import { fmtBR, fmtPct } from "@/lib/utils";
-import { CheckCircle2, Circle, ArrowUpRight } from "lucide-react";
+import { fmtBR, fmtPct, cn } from "@/lib/utils";
+import { TrendingUp, TrendingDown, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-const mesPtBR = [
-  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
-  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
-];
+const mesPtBR = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
 export default async function VisaoGeralPage() {
   const supabase = await createClient();
   const hoje = new Date();
   const ano = hoje.getFullYear();
   const mes = hoje.getMonth() + 1;
+  const mesAntAno = mes === 1 ? ano - 1 : ano;
+  const mesAntMes = mes === 1 ? 12 : mes - 1;
 
-  // Métricas completas (lucro previsto considerando impostos+bancárias do histórico)
-  const { data: dre } = await supabase
-    .from("metricas_completas")
-    .select("*")
-    .eq("ano", ano)
-    .eq("mes", mes)
-    .maybeSingle();
+  const [atual, anterior, planoRows, lacunasN] = await Promise.all([
+    supabase.from("metricas_completas").select("*").eq("ano", ano).eq("mes", mes).maybeSingle(),
+    supabase.from("metricas_completas").select("*").eq("ano", mesAntAno).eq("mes", mesAntMes).maybeSingle(),
+    supabase.from("plano_acao_item").select("id, titulo, severidade, status, categoria_plano, prazo")
+      .eq("ano", ano).eq("mes", mes).is("deleted_at", null).order("ordem").limit(6),
+    supabase.from("painel_lacunas").select("tipo", { count: "exact", head: true }),
+  ]);
 
-  const d = (dre ?? {}) as Record<string, number | undefined>;
-  const receita = d.receita_bruta ?? 0;
-  const cmv = d.cmv ?? 0;
-  const cmvPct = receita > 0 ? Math.abs(cmv) / receita : 0;
-  const lucroOp = d.lucro_operacional ?? 0;
-  const lucroOpPrevisto = d.lucro_operacional_previsto ?? lucroOp;
-  const lucroSocio = d.lucro_socio ?? 0;
-  const lucroSocioPrevisto = d.lucro_socio_previsto ?? lucroSocio;
+  const a: any = atual.data ?? {};
+  const p: any = anterior.data ?? null;
+  const receitaA = Number(a.receita_bruta ?? 0);
+  const receitaP = Number(p?.receita_bruta ?? 0);
+  const lucroA = Number(a.lucro_socio_previsto ?? 0);
+  const lucroP = Number(p?.lucro_socio_previsto ?? 0);
 
-  // Plano de ação resumo
-  const { data: planoRows } = await supabase
-    .from("plano_acao_item")
-    .select("id, titulo, severidade, status, categoria_plano, prazo")
-    .eq("ano", ano)
-    .eq("mes", mes)
-    .is("deleted_at", null)
-    .order("ordem")
-    .limit(20);
+  const variacaoReceita = receitaP > 0 ? (receitaA - receitaP) / receitaP : null;
 
-  const plano = (planoRows ?? []) as Array<{
-    id: string; titulo: string;
-    severidade: "urgente" | "medio" | "controle" | "positivo";
-    status: string; categoria_plano: string; prazo: string | null;
-  }>;
-
-  const insights = plano.filter((p) => p.categoria_plano !== "organizacao");
-  const checklist = plano.filter((p) => p.categoria_plano === "organizacao");
-  const concluidos = plano.filter((p) => p.status === "concluido").length;
+  const plano = (planoRows.data ?? []) as Array<{ id: string; titulo: string; severidade: string; status: string; categoria_plano: string }>;
+  const urgentes = plano.filter((i) => i.severidade === "urgente" && i.status !== "concluido");
+  const positivos = plano.filter((i) => i.severidade === "positivo");
 
   return (
-    <div className="space-y-10 max-w-7xl">
-      <EyebrowTitle
-        eyebrow={`// ${mesPtBR[mes - 1].toUpperCase()} ${ano}`}
-        title="Visão geral"
-        level={1}
-      />
-
-      {receita === 0 ? (
-        <Card variant="amarelo">
-          <div className="font-[family-name:var(--font-subtitulo)] text-lg mb-2">
-            🍕 Tá faltando alimentar o mês
+    <div className="space-y-6 max-w-6xl">
+      {/* HERO — mês corrente com lucro grande */}
+      <header className="rounded-2xl border-3 border-preto bg-amarelo overflow-hidden">
+        <div className="p-6 md:p-8">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <div className="eyebrow">// {mesPtBR[mes-1].toUpperCase()}/{ano} · MÊS CORRENTE</div>
+              <h1 className="text-3xl md:text-5xl font-[family-name:var(--font-titulo)] leading-none mt-1">
+                Como tá o caixa
+              </h1>
+            </div>
+            <div className="text-right">
+              <div className="text-xs font-[family-name:var(--font-mono)] text-preto/60">Hoje · {hoje.toLocaleDateString("pt-BR")}</div>
+            </div>
           </div>
-          <p className="text-sm">
-            Sem dados de venda nem despesa pra {mesPtBR[mes - 1]}/{ano} ainda.
-            Comece anexando o PDF do Fast Report em <strong>Vendas → Dia</strong> ou
-            o PDF do extrato em <strong>Financeiro → Saídas</strong>.
-          </p>
-        </Card>
-      ) : (
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-          <StatCard label="Faturamento" valor={fmtBR(receita)} />
-          <StatCard
-            label="CMV"
-            valor={fmtBR(Math.abs(cmv))}
-            hint={`${fmtPct(cmvPct)} da receita`}
-            destaque={cmvPct > 0.35 ? "vermelho" : "verde"}
+
+          {receitaA === 0 ? (
+            <Card variant="creme" className="mt-6">
+              <p className="text-sm">Sem dados de {mesPtBR[mes-1]} ainda. Suba o relatório do PDV em <Link href="/vendas/dia" className="underline font-bold">Vendas</Link>.</p>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+              <BigNumber
+                rotulo="Faturamento até hoje"
+                valor={fmtBR(receitaA)}
+                comparacao={variacaoReceita}
+                comparacaoLabel="vs mês anterior"
+              />
+              <BigNumber
+                rotulo="Lucro projetado"
+                valor={fmtBR(lucroA)}
+                negativo={lucroA < 0}
+                hint="já desconta impostos e bancárias previstas"
+              />
+              <BigNumber
+                rotulo="Pendências críticas"
+                valor={String(urgentes.length)}
+                hint={urgentes.length > 0 ? "ações urgentes no plano" : "tudo sob controle"}
+                negativo={urgentes.length > 0}
+              />
+            </div>
+          )}
+        </div>
+        {p && (
+          <div className="bg-preto text-creme px-6 md:px-8 py-3 flex items-center justify-between text-sm flex-wrap gap-2">
+            <span className="font-[family-name:var(--font-mono)]">
+              📊 {mesPtBR[mesAntMes-1]} fechou: receita {fmtBR(receitaP)} · lucro {fmtBR(lucroP)}
+            </span>
+            <Link href="/dre" className="text-amarelo hover:underline font-[family-name:var(--font-subtitulo)] text-xs">
+              ver DRE completa →
+            </Link>
+          </div>
+        )}
+      </header>
+
+      {/* DIAGNÓSTICO RÁPIDO */}
+      {receitaA > 0 && (
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <StatusCard
+            titulo="CMV"
+            valor={fmtPct(a.cmv_pct ?? 0)}
+            metaTxt="meta ≤ 35%"
+            ok={(a.cmv_pct ?? 0) <= 0.35}
+            descricao={(a.cmv_pct ?? 0) > 0.35
+              ? "Acima da meta · revisar fornecedores e gramatura"
+              : "Dentro do saudável"}
           />
-          <StatCard
-            label="Lucro op. previsto"
-            valor={fmtBR(lucroOpPrevisto)}
-            hint="já desc. impostos+banco prev."
-            destaque={lucroOpPrevisto >= 0 ? "verde" : "vermelho"}
+          <StatusCard
+            titulo="Retirada sócios"
+            valor={fmtPct(a.pro_labore_pct ?? 0)}
+            metaTxt="meta ≤ 25%"
+            ok={(a.pro_labore_pct ?? 0) <= 0.25}
+            descricao={(a.pro_labore_pct ?? 0) > 0.25
+              ? "Acima do saudável · segurar retirada"
+              : "Dentro do limite"}
           />
-          <StatCard
-            label="Lucro do sócio prev."
-            valor={fmtBR(lucroSocioPrevisto)}
-            hint="depois do pró-labore"
-            destaque={lucroSocioPrevisto >= 0 ? "verde" : "vermelho"}
+          <StatusCard
+            titulo="Ticket médio"
+            valor={fmtBR(a.ticket_medio ?? 0)}
+            metaTxt={`meta ≥ ${fmtBR(a.meta_ticket ?? 28)}`}
+            ok={(a.ticket_medio ?? 0) >= (a.meta_ticket ?? 28)}
+            descricao={(a.ticket_medio ?? 0) >= (a.meta_ticket ?? 28)
+              ? "Boa média por venda"
+              : `Cada R$ 1 = +${fmtBR((a.qtd_vendas ?? 0))}/mês`}
           />
         </section>
       )}
 
-      <MetricasBasicas ano={ano} mes={mes} />
+      {/* PRÓXIMAS AÇÕES */}
+      {plano.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-end justify-between">
+            <EyebrowTitle eyebrow="// PRÓXIMAS AÇÕES" title="O que fazer agora" level={2} />
+            <Link href="/plano-de-acao" className="text-sm font-[family-name:var(--font-subtitulo)] text-vermelho hover:underline">
+              ver todas →
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {plano.slice(0, 4).map((it) => <ItemAcao key={it.id} item={it} />)}
+          </div>
+        </section>
+      )}
+
+      {/* INSIGHTS POSITIVOS */}
+      {positivos.length > 0 && (
+        <section>
+          <Card variant="creme" className="border-verde border-[3px]">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle2 size={18} className="text-verde" />
+              <h3 className="font-[family-name:var(--font-subtitulo)] text-verde">Tá funcionando — manter</h3>
+            </div>
+            <ul className="text-sm space-y-1">
+              {positivos.map((p) => <li key={p.id}>• {p.titulo}</li>)}
+            </ul>
+          </Card>
+        </section>
+      )}
 
       <PainelLacunas />
-
-      {/* Plano de ação do mês */}
-      <section className="space-y-4">
-        <div className="flex items-end justify-between gap-4">
-          <EyebrowTitle
-            eyebrow={`// ${concluidos}/${plano.length} CONCLUÍDOS`}
-            title="Plano do mês"
-            level={2}
-          />
-          <Link href="/plano-de-acao" className="text-sm font-[family-name:var(--font-subtitulo)] hover:text-vermelho">
-            Ver tudo →
-          </Link>
-        </div>
-
-        {plano.length === 0 && (
-          <Card variant="creme">
-            <p className="text-sm">
-              Plano do mês ainda não foi gerado. Ele é criado automaticamente
-              no dia 1 a partir do fechamento do mês anterior (decisão §7.17).
-              <Link href="/plano-de-acao" className="ml-2 underline font-[family-name:var(--font-subtitulo)]">
-                Gerar agora →
-              </Link>
-            </p>
-          </Card>
-        )}
-
-        {insights.length > 0 && (
-          <div>
-            <div className="eyebrow mb-2">// Insights do fechamento anterior</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {insights.slice(0, 4).map((p) => <ItemPlano key={p.id} p={p} />)}
-            </div>
-          </div>
-        )}
-
-        {checklist.length > 0 && (
-          <div>
-            <div className="eyebrow mb-2">// Checklist de organização particular</div>
-            <Card>
-              <ul className="divide-y divide-preto/10">
-                {checklist.slice(0, 6).map((p) => (
-                  <li key={p.id} className="py-2 flex items-center gap-3 text-sm">
-                    {p.status === "concluido"
-                      ? <CheckCircle2 size={16} className="text-verde shrink-0" />
-                      : <Circle size={16} className="text-preto/30 shrink-0" />}
-                    <span className={p.status === "concluido" ? "line-through text-preto/50" : ""}>
-                      {p.titulo}
-                    </span>
-                    {p.prazo && (
-                      <span className="ml-auto text-xs font-[family-name:var(--font-mono)] text-preto/50">
-                        até {new Date(p.prazo).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              {checklist.length > 6 && (
-                <Link href="/plano-de-acao" className="block mt-3 text-xs font-[family-name:var(--font-subtitulo)] text-vermelho hover:underline">
-                  + {checklist.length - 6} item(ns) na lista completa →
-                </Link>
-              )}
-            </Card>
-          </div>
-        )}
-      </section>
     </div>
   );
 }
 
-function ItemPlano({ p }: { p: { id: string; titulo: string; severidade: string } }) {
-  const cor = p.severidade === "urgente" ? "bg-vermelho text-white"
-            : p.severidade === "medio"   ? "bg-amarelo"
-            : p.severidade === "positivo" ? "bg-verde text-white"
-            : "bg-creme-claro";
+function BigNumber({ rotulo, valor, hint, comparacao, comparacaoLabel, negativo }: {
+  rotulo: string; valor: string; hint?: string;
+  comparacao?: number | null; comparacaoLabel?: string; negativo?: boolean;
+}) {
   return (
-    <Link href="/plano-de-acao" className={`card-bruto ${cor} block hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#1A1410] transition-transform`}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="font-[family-name:var(--font-subtitulo)] text-sm leading-tight">{p.titulo}</div>
-        <ArrowUpRight size={16} className="shrink-0 opacity-60" />
+    <div className="bg-white border-3 border-preto rounded-xl p-4">
+      <div className="eyebrow mb-1">{rotulo}</div>
+      <div className={cn(
+        "text-3xl md:text-4xl font-[family-name:var(--font-titulo)] leading-none",
+        negativo && "text-vermelho",
+      )}>
+        {valor}
       </div>
+      {comparacao != null && (
+        <div className="flex items-center gap-1 mt-2 text-xs font-[family-name:var(--font-mono)]">
+          {comparacao >= 0 ? (
+            <span className="text-verde flex items-center gap-1">
+              <TrendingUp size={12} /> +{(comparacao * 100).toFixed(1)}%
+            </span>
+          ) : (
+            <span className="text-vermelho flex items-center gap-1">
+              <TrendingDown size={12} /> {(comparacao * 100).toFixed(1)}%
+            </span>
+          )}
+          <span className="text-preto/50">{comparacaoLabel}</span>
+        </div>
+      )}
+      {hint && !comparacao && (
+        <div className="text-xs mt-2 text-preto/60 font-[family-name:var(--font-mono)]">{hint}</div>
+      )}
+    </div>
+  );
+}
+
+function StatusCard({ titulo, valor, metaTxt, descricao, ok }: {
+  titulo: string; valor: string; metaTxt: string; descricao: string; ok: boolean;
+}) {
+  return (
+    <div className={cn(
+      "card-bruto border-l-[6px]",
+      ok ? "border-l-verde" : "border-l-vermelho",
+    )}>
+      <div className="flex items-center justify-between mb-1">
+        <div className="eyebrow">{titulo}</div>
+        {ok
+          ? <CheckCircle2 size={16} className="text-verde" />
+          : <AlertCircle size={16} className="text-vermelho" />}
+      </div>
+      <div className="text-2xl font-[family-name:var(--font-titulo)] leading-tight">{valor}</div>
+      <div className="text-[11px] font-[family-name:var(--font-mono)] text-preto/50 mt-1">{metaTxt}</div>
+      <div className="text-xs mt-2 text-preto/80">{descricao}</div>
+    </div>
+  );
+}
+
+function ItemAcao({ item }: { item: { id: string; titulo: string; severidade: string; status: string } }) {
+  const cor = item.severidade === "urgente" ? "border-l-vermelho bg-vermelho/5"
+            : item.severidade === "medio"   ? "border-l-amarelo-escuro bg-amarelo/10"
+            : item.severidade === "positivo" ? "border-l-verde bg-verde/5"
+            : "border-l-preto/30";
+  return (
+    <Link href="/plano-de-acao" className={cn("card-bruto border-l-[6px] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#1A1410] transition-transform flex items-start justify-between gap-3", cor)}>
+      <span className="text-sm font-[family-name:var(--font-subtitulo)] leading-tight">{item.titulo}</span>
+      <ArrowRight size={16} className="shrink-0 mt-0.5 text-preto/40" />
     </Link>
   );
 }

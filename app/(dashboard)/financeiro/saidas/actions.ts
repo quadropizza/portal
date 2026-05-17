@@ -207,6 +207,17 @@ export async function salvarSaidaManual(formData: FormData): Promise<{ ok: boole
   return { ok: true };
 }
 
+export async function trocarCategoria(formData: FormData): Promise<{ ok: boolean }> {
+  const id = String(formData.get("id"));
+  const cat = (formData.get("categoria_id") as string) || null;
+  const supabase = await createClient();
+  await supabase.from("saida").update({ categoria_id: cat }).eq("id", id);
+  revalidatePath("/financeiro/saidas");
+  revalidatePath("/dre");
+  revalidatePath("/visao-geral");
+  return { ok: true };
+}
+
 export async function deletarSaida(formData: FormData) {
   const id = String(formData.get("id"));
   const supabase = await createClient();
