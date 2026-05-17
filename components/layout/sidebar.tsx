@@ -16,6 +16,7 @@ const itemsDono = [
   { href: "/estoque/bebidas",        nome: "Bebidas",      icon: Package,         match: "/estoque/bebidas" },
   { href: "/estoque/producao",       nome: "Produção",     icon: Pizza,           match: "/estoque/producao" },
   { href: "/estoque/contagem-pizza", nome: "Contar pizzas", icon: Pizza,          match: "/estoque/contagem" },
+  { href: "/estoque/fechamento",     nome: "Fechamento estoque", icon: BarChart3,  match: "/estoque/fechamento" },
   { href: "/fiados",                 nome: "Fiados",       icon: ClipboardList,   match: "/fiados" },
   { href: "/financeiro/saidas",      nome: "Financeiro",   icon: Wallet,          match: "/financeiro" },
   { href: "/notas-fiscais",          nome: "NFs / Contas", icon: FileText,        match: "/notas-fiscais" },

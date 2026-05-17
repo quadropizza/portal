@@ -43,14 +43,18 @@ export async function adicionarItem(formData: FormData): Promise<{ ok: boolean }
   const fiadoId = String(formData.get("fiado_id"));
   const produtoId = String(formData.get("produto_id"));
   const quantidade = Number(formData.get("quantidade"));
+  const dataConsumo = (formData.get("data_consumo") as string) || null;
 
   const { data: produto } = await supabase.from("produto").select("preco_venda").eq("id", produtoId).maybeSingle();
   const preco = Number((produto as { preco_venda?: number } | null)?.preco_venda ?? 0);
 
-  await supabase.from("fiado_item").insert({
+  const payload: Record<string, unknown> = {
     fiado_id: fiadoId, produto_id: produtoId, quantidade,
     valor_unitario: preco, valor_total: preco * quantidade,
-  });
+  };
+  if (dataConsumo) payload.created_at = new Date(dataConsumo).toISOString();
+
+  await supabase.from("fiado_item").insert(payload);
   revalidatePath(`/fiados/${fiadoId}`);
   return { ok: true };
 }

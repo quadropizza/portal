@@ -15,15 +15,17 @@ export default async function AnalisePage({ searchParams }: { searchParams: Prom
   const mes = sp.mes ? Number(sp.mes) : hoje.getMonth() + 1;
 
   const supabase = await createClient();
-  const [metricsR, prodR, horaR, dowR, dreHistR] = await Promise.all([
+  const [metricsR, mmR, prodR, horaR, dowR, dreHistR] = await Promise.all([
     supabase.from("metricas_completas").select("*").eq("ano", ano).eq("mes", mes).maybeSingle(),
+    supabase.from("metricas_mensais").select("*").eq("ano", ano).eq("mes", mes).maybeSingle(),
     supabase.from("vendas_por_produto").select("*").eq("ano", ano).eq("mes", mes).order("fat_total", { ascending: false }),
     supabase.from("vendas_por_hora").select("*").eq("ano", ano).eq("mes", mes).order("hora"),
     supabase.from("vendas_por_dia_semana").select("*").eq("ano", ano).eq("mes", mes).order("dow"),
     supabase.from("dre_mensal").select("*").order("ano").order("mes"),
   ]);
 
-  const m: any = metricsR.data ?? {};
+  // Fallback: metricas_completas pode falhar se sem despesas; usa metricas_mensais
+  const m: any = metricsR.data ?? mmR.data ?? {};
   const produtos = (prodR.data ?? []) as any[];
   const horas = (horaR.data ?? []) as any[];
   const dow = (dowR.data ?? []) as any[];
@@ -71,7 +73,9 @@ export default async function AnalisePage({ searchParams }: { searchParams: Prom
       </div>
 
       {receita === 0 ? (
-        <Card variant="amarelo"><p className="text-sm">Sem dados em {mesPtBR[mes-1]}/{ano}.</p></Card>
+        <Card variant="amarelo">
+          <p className="text-sm">Sem vendas em {mesPtBR[mes-1]}/{ano} ainda. Suba o relatório do PDV em <a href="/vendas/dia" className="underline font-bold">Vendas → alimentar</a>.</p>
+        </Card>
       ) : (
         <>
           {/* MÉTRICAS-CHAVE DE GESTÃO DE RESTAURANTE */}

@@ -224,6 +224,28 @@ export async function trocarCategoria(formData: FormData): Promise<{ ok: boolean
   return { ok: true };
 }
 
+export async function sugerirCatEObrig(saidaId: string): Promise<{ categoria_id: string | null; categoria_nome: string | null; motivo: string | null; obrigacao_id: string | null; obrigacao_resumo: string | null }> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("sugerir_para_saida", { p_saida_id: saidaId });
+  const r = ((data ?? []) as any[])[0];
+  return r ?? { categoria_id: null, categoria_nome: null, motivo: null, obrigacao_id: null, obrigacao_resumo: null };
+}
+
+export async function aceitarSugestao(formData: FormData): Promise<{ ok: boolean }> {
+  const supabase = await createClient();
+  const id = String(formData.get("id"));
+  const cat = (formData.get("categoria_id") as string) || null;
+  const obr = (formData.get("obrigacao_id") as string) || null;
+  const patch: Record<string, string | null> = {};
+  if (cat) patch.categoria_id = cat;
+  if (obr) patch.obrigacao_id = obr;
+  await supabase.from("saida").update(patch).eq("id", id);
+  revalidatePath("/financeiro/saidas");
+  revalidatePath("/notas-fiscais");
+  revalidatePath("/dre");
+  return { ok: true };
+}
+
 export async function criarCategoria(formData: FormData): Promise<{ ok: boolean; erro?: string; id?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

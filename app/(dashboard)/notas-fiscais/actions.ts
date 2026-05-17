@@ -4,10 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { parseNfeXml } from "@/lib/parsers/nfe-xml";
 import { revalidatePath } from "next/cache";
 
-export async function uploadNfe(formData: FormData): Promise<{ ok: boolean; erro?: string; obrigacao_id?: string; resumo?: { fornecedor: string; valor: number; itens: number } }> {
+export async function uploadNfe(formData: FormData): Promise<{ ok: boolean; erro?: string; obrigacao_id?: string; resumo?: { fornecedor: string; valor: number; itens: number; tipo: string } }> {
   const file = formData.get("arquivo") as File | null;
   if (!file) return { ok: false, erro: "Sem arquivo" };
-  if (!file.name.toLowerCase().endsWith(".xml")) return { ok: false, erro: "Só XML de NF-e" };
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -16,81 +15,99 @@ export async function uploadNfe(formData: FormData): Promise<{ ok: boolean; erro
   const empresaId = (u as { empresa_id?: string } | null)?.empresa_id;
   if (!empresaId) return { ok: false, erro: "sem empresa" };
 
-  const xml = await file.text();
-  const parsed = parseNfeXml(xml);
-  if (!parsed.chave_acesso) return { ok: false, erro: "XML não parece ser NF-e (sem chave de acesso)." };
+  const nome = file.name.toLowerCase();
+  const isXml = nome.endsWith(".xml");
+  const isPdf = nome.endsWith(".pdf");
+  const isImg = /\.(jpe?g|png|webp)$/i.test(nome);
 
-  // Upload do XML
-  const caminho = `${empresaId}/nfe/${Date.now()}-${file.name}`;
-  await supabase.storage.from("anexos").upload(caminho, Buffer.from(xml), { contentType: "application/xml" });
+  if (!isXml && !isPdf && !isImg) {
+    return { ok: false, erro: "Formato não suportado. Aceito: XML (NF-e), PDF (DARF/FGTS/Boleto), JPEG/PNG (foto de boleto)." };
+  }
+
+  // Upload pro Storage
+  const buf = Buffer.from(await file.arrayBuffer());
+  const caminho = `${empresaId}/${isXml ? "nfe" : "boleto"}/${Date.now()}-${file.name}`;
+  const mime = isXml ? "application/xml" : isPdf ? "application/pdf" : "image/jpeg";
+  const { error: upErr } = await supabase.storage.from("anexos").upload(caminho, buf, { contentType: mime });
+  if (upErr) return { ok: false, erro: `Storage: ${upErr.message}` };
+
   const { data: anexo } = await supabase.from("arquivo_anexo")
-    .insert({ empresa_id: empresaId, bucket: "nfe", caminho, nome_original: file.name, mime_type: "application/xml", tamanho_bytes: file.size, parsed: true })
+    .insert({ empresa_id: empresaId, bucket: isXml ? "nfe" : "boleto", caminho,
+              nome_original: file.name, mime_type: mime, tamanho_bytes: file.size, parsed: false })
     .select("id").single();
   const anexoId = (anexo as { id: string }).id;
 
-  // Cadastra fornecedor se não existir
-  let fornecedorId: string | null = null;
-  if (parsed.fornecedor.cnpj) {
-    const cnpj = parsed.fornecedor.cnpj.replace(/\D/g, "");
-    const { data: existente } = await supabase.from("fornecedor")
-      .select("id").eq("empresa_id", empresaId).eq("cnpj", cnpj).maybeSingle();
-    if (existente) fornecedorId = (existente as { id: string }).id;
-    else {
-      const { data: novo } = await supabase.from("fornecedor")
-        .insert({ empresa_id: empresaId, cnpj, nome: parsed.fornecedor.nome ?? "Sem nome", apelido: parsed.fornecedor.nome_fantasia ?? null })
-        .select("id").single();
-      fornecedorId = (novo as { id: string } | null)?.id ?? null;
+  // Se for XML: parseia automaticamente e cria obrigação completa
+  if (isXml) {
+    const xml = buf.toString("utf8");
+    const parsed = parseNfeXml(xml);
+    if (!parsed.chave_acesso) {
+      return { ok: false, erro: "XML enviado mas não é NF-e válida (sem chave de acesso)." };
     }
+
+    let fornecedorId: string | null = null;
+    if (parsed.fornecedor.cnpj) {
+      const cnpj = parsed.fornecedor.cnpj.replace(/\D/g, "");
+      const { data: existente } = await supabase.from("fornecedor")
+        .select("id").eq("empresa_id", empresaId).eq("cnpj", cnpj).maybeSingle();
+      if (existente) fornecedorId = (existente as { id: string }).id;
+      else {
+        const { data: novo } = await supabase.from("fornecedor")
+          .insert({ empresa_id: empresaId, cnpj, nome: parsed.fornecedor.nome ?? "Sem nome", apelido: parsed.fornecedor.nome_fantasia ?? null })
+          .select("id").single();
+        fornecedorId = (novo as { id: string } | null)?.id ?? null;
+      }
+    }
+
+    const duplicatas = parsed.duplicatas.length > 0
+      ? parsed.duplicatas
+      : [{ numero: "1", vencimento: parsed.data_emissao ?? new Date().toISOString().split("T")[0], valor: parsed.valor_total ?? 0 }];
+
+    let primeiraObrigId: string | null = null;
+    for (const d of duplicatas) {
+      const { data: obrig } = await supabase.from("obrigacao_a_pagar").insert({
+        empresa_id: empresaId, tipo: "nf_fornecedor", fornecedor_id: fornecedorId,
+        numero: `${parsed.numero ?? ""}${duplicatas.length > 1 ? `-${d.numero}` : ""}`,
+        serie: parsed.serie, chave_acesso: parsed.chave_acesso,
+        data_emissao: parsed.data_emissao, data_vencimento: d.vencimento || parsed.data_emissao,
+        valor_total: d.valor, arquivo_xml_id: anexoId, parsed: true,
+      }).select("id").single();
+      const obrigId = (obrig as { id: string } | null)?.id;
+      if (!obrigId) continue;
+      if (!primeiraObrigId) primeiraObrigId = obrigId;
+      if (primeiraObrigId === obrigId && parsed.items.length > 0) {
+        await supabase.from("obrigacao_item").insert(
+          parsed.items.map((it) => ({
+            obrigacao_id: obrigId, descricao_original: it.descricao, ncm: it.ncm,
+            quantidade: it.qtd, unidade: it.unidade, valor_unitario: it.valor_unitario, valor_total: it.valor_total,
+          }))
+        );
+      }
+    }
+
+    revalidatePath("/notas-fiscais");
+    return {
+      ok: true, obrigacao_id: primeiraObrigId ?? undefined,
+      resumo: { fornecedor: parsed.fornecedor.nome ?? "—", valor: parsed.valor_total ?? 0, itens: parsed.items.length, tipo: "NF-e XML" },
+    };
   }
 
-  // Cria obrigação_a_pagar (uma por duplicata; se sem duplicata, uma só)
-  const duplicatas = parsed.duplicatas.length > 0
-    ? parsed.duplicatas
-    : [{ numero: "1", vencimento: parsed.data_emissao ?? new Date().toISOString().split("T")[0], valor: parsed.valor_total ?? 0 }];
-
-  let primeiraObrigId: string | null = null;
-  for (const d of duplicatas) {
-    const { data: obrig } = await supabase.from("obrigacao_a_pagar").insert({
-      empresa_id: empresaId,
-      tipo: "nf_fornecedor",
-      fornecedor_id: fornecedorId,
-      numero: `${parsed.numero ?? ""}${duplicatas.length > 1 ? `-${d.numero}` : ""}`,
-      serie: parsed.serie,
-      chave_acesso: parsed.chave_acesso,
-      data_emissao: parsed.data_emissao,
-      data_vencimento: d.vencimento || parsed.data_emissao,
-      valor_total: d.valor,
-      arquivo_xml_id: anexoId,
-      parsed: true,
-    }).select("id").single();
-    const obrigId = (obrig as { id: string } | null)?.id;
-    if (!obrigId) continue;
-    if (!primeiraObrigId) primeiraObrigId = obrigId;
-
-    // Insere os itens (na primeira só — itens não se duplicam por duplicata)
-    if (primeiraObrigId === obrigId && parsed.items.length > 0) {
-      const itemRows = parsed.items.map((it) => ({
-        obrigacao_id: obrigId,
-        descricao_original: it.descricao,
-        ncm: it.ncm,
-        quantidade: it.qtd,
-        unidade: it.unidade,
-        valor_unitario: it.valor_unitario,
-        valor_total: it.valor_total,
-      }));
-      await supabase.from("obrigacao_item").insert(itemRows);
-    }
-  }
+  // PDF/IMG: cria obrigação em rascunho com vencimento hoje, pra usuário editar
+  const tipoPalpite = nome.includes("darf") ? "tributo"
+                    : nome.includes("fgts") ? "encargo_trabalhista"
+                    : "boleto_avulso";
+  const { data: obrig } = await supabase.from("obrigacao_a_pagar").insert({
+    empresa_id: empresaId, tipo: tipoPalpite,
+    data_vencimento: new Date().toISOString().split("T")[0],
+    valor_total: 0, arquivo_pdf_id: anexoId, parsed: false,
+    observacoes: `Anexo: ${file.name} — preencher valor, vencimento e categoria.`,
+  }).select("id").single();
+  const obrigId = (obrig as { id: string } | null)?.id;
 
   revalidatePath("/notas-fiscais");
   return {
-    ok: true,
-    obrigacao_id: primeiraObrigId ?? undefined,
-    resumo: {
-      fornecedor: parsed.fornecedor.nome ?? "—",
-      valor: parsed.valor_total ?? 0,
-      itens: parsed.items.length,
-    },
+    ok: true, obrigacao_id: obrigId,
+    resumo: { fornecedor: file.name, valor: 0, itens: 0, tipo: isPdf ? "PDF (preencher dados)" : "Foto (preencher dados)" },
   };
 }
 
@@ -119,10 +136,6 @@ export async function salvarObrigacaoManual(formData: FormData): Promise<{ ok: b
   return { ok: true };
 }
 
-/**
- * Marca obrigação como paga, gerando saída automática vinculada à categoria.
- * O trigger aplicar_pagamento_obrigacao do banco abate o valor_pago + concilia.
- */
 export async function pagarObrigacao(formData: FormData): Promise<{ ok: boolean; erro?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -145,17 +158,13 @@ export async function pagarObrigacao(formData: FormData): Promise<{ ok: boolean;
 
   const desc = `Pgto ${o.tipo === "nf_fornecedor" ? "NF" : o.tipo === "boleto_avulso" ? "Boleto" : o.tipo} ${o.numero ?? ""} · ${o.fornecedor?.apelido ?? o.fornecedor?.nome ?? ""}`.trim();
 
-  // Insere saída (trigger aplicar_pagamento_obrigacao concilia)
   await supabase.from("saida").insert({
     empresa_id: empresaId,
     data: new Date().toISOString().split("T")[0],
-    descricao_original: desc,
-    descricao: desc,
+    descricao_original: desc, descricao: desc,
     valor: restante,
-    categoria_id: o.categoria_id,
-    fornecedor_id: o.fornecedor_id,
-    forma_pagamento: forma,
-    obrigacao_id: id,
+    categoria_id: o.categoria_id, fornecedor_id: o.fornecedor_id,
+    forma_pagamento: forma, obrigacao_id: id,
   });
 
   revalidatePath("/notas-fiscais");
