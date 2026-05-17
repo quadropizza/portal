@@ -682,7 +682,11 @@ plano_acao_item (
 14. **"Obrigação a pagar" é o conceito amplo** — substitui a ideia restrita de "NF de fornecedor". A tabela cobre 4 tipos: `nf_fornecedor` (com XML), `boleto_avulso` (sem NF-e, ex: Ivanor), `tributo` (DARF, GPS, ISS), `encargo_trabalhista` (FGTS, GFD). Cada um tem campos opcionais — DARF não tem fornecedor, FGTS não tem chave NF-e, mas todos têm vencimento, valor, status.
 15. **Tudo é editável e deletável** pelo usuário — vendas, saídas, NFs, fichas, produtos, plano de ação, insights. Toda alteração/exclusão grava registro de auditoria (`audit_log`) com quem-quando-o-quê. Soft delete (`deleted_at`) por default para não perder histórico de DRE.
 16. **Insights mostram TANTO bom quanto ruim** — não é só alertômetro de problema. Quando o mês tem crescimento, novo produto se destacou, ou ticket médio subiu, isso vira insight positivo com a mesma proeminência. Motor de regras tem severidade `positivo` além de `urgente`/`medio`/`controle`.
-17. **Plano de ação do mês é gerado AUTOMATICAMENTE no fechamento** do mês anterior. Disparado por job (Supabase cron) no dia 1 de cada mês, lendo a DRE consolidada do mês que fechou. Itens gerados ficam editáveis — o usuário pode marcar concluído, arquivar, reescrever, adicionar item manual.
+17. **Plano de ação do mês é gerado AUTOMATICAMENTE no fechamento** do mês anterior. Disparado por job (Supabase cron) no dia 1 de cada mês, lendo a DRE consolidada do mês que fechou. Função SQL `gerar_plano_mensal(empresa, ano, mes)` é idempotente (re-rodar não duplica). Cada item tem `categoria_plano` ∈ `{insight, organizacao, manual}`:
+    - **insight** — vem das regras R001-R008 e P001-P009 aplicadas ao mês anterior
+    - **organizacao** — checklist fixo de organização particular (ver §7.24)
+    - **manual** — adicionado pelo dono dentro da tela
+    Itens são editáveis (toggle status, expand/collapse de detalhe, soft delete).
 18. **OFX do Sicredi não está disponível** — só PDF. Parser de extrato precisa ser robusto a quebras de layout (Sicredi quebra colunas em linhas longas). Roadmap: se Sicredi liberar OFX no futuro, migrar pra ele como fonte primária.
 19. **Tela de ficha técnica permite criar e atualizar a qualquer momento** — cada alteração gera nova `versao` mantendo histórico. Custo de produção lançado em produções passadas usa a versão que estava ativa naquela data.
 20. **Repositório git público é privado por padrão** — código pode ser aberto no futuro, mas anexos (extratos, NFs, vendas detalhadas) **nunca** vão pro git. Ficam só no Supabase Storage com RLS. `.gitignore` protege a pasta de trabalho local.
@@ -696,7 +700,20 @@ plano_acao_item (
     - As **senhas em si NUNCA são versionadas no git** — ficam só no Supabase Auth (hash bcrypt). Criação dos usuários é feita uma vez, manualmente, no Supabase Console (Auth → Users → Invite) ou via script `supabase/seed.local.sql` que carrega de `.env.local` (também ignorado pelo git).
     - Senhas definidas pelo dono no setup. Critério da Alessandra: 7 chars com mixed case e dígitos (suficiente pra uso interno; revisitar se app expor além da equipe).
 
-23. **Princípio "sinalizar lacunas"** — toda entidade com dado faltando dispara alerta visível no painel `Tá faltando preencher`. Casos cobertos:
+23. **Checklist de organização particular** — junto com os insights do mês, o `gerar_plano_mensal` clona itens da tabela `template_organizacao` (14 itens fixos no seed) como tarefas recorrentes daquele mês: conferir extrato semana 1-4, contagem semanal de insumos, contagem de pizzas, pagar tributos (Simples/DARF/FGTS), cadastrar NFs recebidas, lançar produções, revisar plano do mês anterior, atualizar fichas técnicas, conferir folha, definir retirada dos sócios. O dono pode editar/desativar itens no template (tela `/configuracoes/checklist`) ou marcar concluído/apagar item específico daquele mês.
+
+24. **Métricas básicas do mês** — view `metricas_mensais` calcula 8 KPIs com classificação automática `alto/medio/saudavel/neutro` baseada em `empresa.metas`:
+    - **CMV %** (alto >40%, atenção >35%, saudável ≤35%)
+    - **CMO %** = folha + encargos / receita (alto >20%, atenção >15%, saudável ≤15%)
+    - **Despesas operacionais %** = tudo exceto pró-labore (alto >85%, atenção >70%)
+    - **Retirada sócios %** (alto >35%, atenção >25%)
+    - **Ticket médio** vs meta (alto se <85% da meta, atenção se <meta)
+    - **Dias operados** vs dias do mês (alto se <55%, atenção se <70%)
+    - **Margem operacional** (vermelho se <0, atenção se <10%)
+    - **Margem líquida** (vermelho se <0, atenção se <10%)
+    Cada KPI aparece como Card neo-brutalista com badge colorido. Lê metas de `empresa.metas` — dono ajusta em `/configuracoes`.
+
+25. **Princípio "sinalizar lacunas"** — toda entidade com dado faltando dispara alerta visível no painel `Tá faltando preencher`. Casos cobertos:
     - Produto vendido sem ficha técnica cadastrada
     - Insumo na ficha sem custo confirmado (ainda no seed da .docx ou totalmente sem custo)
     - Insumo de NF não vinculado a nenhum item do catálogo
