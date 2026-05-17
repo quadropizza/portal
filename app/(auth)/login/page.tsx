@@ -43,11 +43,8 @@ export default function LoginPage() {
       <div className="card-bruto card-bruto-lg w-full max-w-md bg-white">
         <div className="text-center mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/identidade.webp" alt="Quadrô" className="w-32 h-32 mx-auto mb-2 object-cover border-3 border-preto rounded-full" />
-          <h1 className="text-5xl font-[family-name:var(--font-titulo)] text-vermelho leading-none">
-            QUADRÔ
-          </h1>
-          <div className="mt-2 text-sm font-[family-name:var(--font-mono)] text-preto/60">
+          <img src="/logo.png" alt="Quadrô" className="w-64 h-auto mx-auto mb-4" />
+          <div className="text-sm font-[family-name:var(--font-mono)] text-preto/60">
             portal de gestão
           </div>
         </div>
