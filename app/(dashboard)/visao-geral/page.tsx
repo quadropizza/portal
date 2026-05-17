@@ -18,12 +18,15 @@ export default async function VisaoGeralPage() {
   const mesAntAno = mes === 1 ? ano - 1 : ano;
   const mesAntMes = mes === 1 ? 12 : mes - 1;
 
-  const [atual, anterior, planoRows, lacunasN] = await Promise.all([
+  const diaAtual = hoje.getDate();
+  const [atual, anterior, planoRows, lacunasN, acumAtR, acumAntR] = await Promise.all([
     supabase.from("metricas_completas").select("*").eq("ano", ano).eq("mes", mes).maybeSingle(),
     supabase.from("metricas_completas").select("*").eq("ano", mesAntAno).eq("mes", mesAntMes).maybeSingle(),
     supabase.from("plano_acao_item").select("id, titulo, severidade, status, categoria_plano, prazo")
       .eq("ano", ano).eq("mes", mes).is("deleted_at", null).order("ordem").limit(6),
     supabase.from("painel_lacunas").select("tipo", { count: "exact", head: true }),
+    supabase.from("venda_acumulada_dia").select("fat_acumulado").eq("ano", ano).eq("mes", mes).lte("dia", diaAtual).order("dia", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("venda_acumulada_dia").select("fat_acumulado").eq("ano", mesAntAno).eq("mes", mesAntMes).lte("dia", diaAtual).order("dia", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
   const a: any = atual.data ?? {};
@@ -33,7 +36,10 @@ export default async function VisaoGeralPage() {
   const lucroA = Number(a.lucro_socio_previsto ?? 0);
   const lucroP = Number(p?.lucro_socio_previsto ?? 0);
 
-  const variacaoReceita = receitaP > 0 ? (receitaA - receitaP) / receitaP : null;
+  // Comparação proporcional: receita até dia X de cada mês
+  const acumAt = Number((acumAtR.data as any)?.fat_acumulado ?? receitaA);
+  const acumAnt = Number((acumAntR.data as any)?.fat_acumulado ?? 0);
+  const variacaoReceita = acumAnt > 0 ? (acumAt - acumAnt) / acumAnt : null;
 
   const plano = (planoRows.data ?? []) as Array<{ id: string; titulo: string; severidade: string; status: string; categoria_plano: string }>;
   const urgentes = plano.filter((i) => i.severidade === "urgente" && i.status !== "concluido");
@@ -67,7 +73,7 @@ export default async function VisaoGeralPage() {
                   rotulo="Faturamento até hoje"
                   valor={fmtBR(receitaA)}
                   comparacao={variacaoReceita}
-                  comparacaoLabel="vs mês anterior"
+                  comparacaoLabel={`vs mesmo dia do mês anterior (${fmtBR(acumAnt)})`}
                 />
                 <BigNumber
                   rotulo="Pendências críticas"
