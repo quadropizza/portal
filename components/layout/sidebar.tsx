@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   ShoppingBag,
+  TrendingUp,
   Package,
   Wallet,
   FileText,
@@ -17,7 +18,8 @@ import {
 
 const items = [
   { href: "/visao-geral",        nome: "Visão geral",       icon: LayoutDashboard },
-  { href: "/vendas/dia",         nome: "Vendas",            icon: ShoppingBag },
+  { href: "/vendas/dia",         nome: "Vendas · alimentar", icon: ShoppingBag },
+  { href: "/vendas/dashboard",   nome: "Vendas · dashboard", icon: TrendingUp },
   { href: "/estoque/insumos",    nome: "Estoque",           icon: Package },
   { href: "/financeiro/saidas",  nome: "Financeiro",        icon: Wallet },
   { href: "/notas-fiscais",      nome: "NFs / Boletos",     icon: FileText },
