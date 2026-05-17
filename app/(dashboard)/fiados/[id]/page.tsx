@@ -11,7 +11,7 @@ export default async function FiadoDetailPage({ params }: { params: Promise<{ id
   const supabase = await createClient();
   const [f, items, produtos] = await Promise.all([
     supabase.from("fiado").select("*").eq("id", id).maybeSingle(),
-    supabase.from("fiado_item").select("id, quantidade, valor_unitario, valor_total, produto:produto(id,nome,categoria)").eq("fiado_id", id).order("created_at"),
+    supabase.from("fiado_item").select("id, quantidade, valor_unitario, valor_total, created_at, produto:produto(id,nome,categoria)").eq("fiado_id", id).order("created_at"),
     supabase.from("produto").select("id, codigo, nome, categoria, preco_venda").eq("ativo", true).is("deleted_at", null).order("categoria").order("codigo"),
   ]);
   if (!f.data) notFound();

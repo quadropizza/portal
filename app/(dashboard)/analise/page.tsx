@@ -205,16 +205,33 @@ export default async function AnalisePage({ searchParams }: { searchParams: Prom
 }
 
 function SeletorMes({ ano, mes }: { ano: number; mes: number }) {
+  const hoje = new Date();
+  const mAtual = hoje.getMonth() + 1;
+  const aAtual = hoje.getFullYear();
+  const mAnt = mAtual === 1 ? 12 : mAtual - 1;
+  const aAnt = mAtual === 1 ? aAtual - 1 : aAtual;
   return (
-    <form className="flex gap-2 items-center text-sm">
-      <select name="mes" defaultValue={mes} className="px-2 py-1 border-2 border-preto rounded bg-creme-claro">
-        {mesPtBR.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
-      </select>
-      <select name="ano" defaultValue={ano} className="px-2 py-1 border-2 border-preto rounded bg-creme-claro">
-        {[ano - 1, ano, ano + 1].map((a) => <option key={a} value={a}>{a}</option>)}
-      </select>
-      <button type="submit" className="px-3 py-1 bg-amarelo border-2 border-preto rounded font-[family-name:var(--font-subtitulo)] text-xs">ver</button>
-    </form>
+    <div className="flex gap-2 items-center text-sm flex-wrap">
+      <form className="flex gap-1 items-center">
+        <select name="mes" defaultValue={mes} className="px-2 py-1 border-2 border-preto rounded bg-creme-claro">
+          {mesPtBR.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
+        </select>
+        <select name="ano" defaultValue={ano} className="px-2 py-1 border-2 border-preto rounded bg-creme-claro">
+          {[ano - 1, ano, ano + 1].map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <button type="submit" className="px-3 py-1 bg-amarelo border-2 border-preto rounded font-[family-name:var(--font-subtitulo)] text-xs">ver</button>
+      </form>
+      <Atalho href={`/analise?ano=${aAtual}&mes=${mAtual}`} label="Atual" ativo={mes===mAtual && ano===aAtual} />
+      <Atalho href={`/analise?ano=${aAnt}&mes=${mAnt}`} label="Mês passado" ativo={mes===mAnt && ano===aAnt} />
+    </div>
+  );
+}
+
+function Atalho({ href, label, ativo }: { href: string; label: string; ativo: boolean }) {
+  return (
+    <a href={href} className={`text-xs px-2 py-1 border-2 border-preto rounded font-[family-name:var(--font-subtitulo)] ${ativo ? "bg-vermelho text-white" : "bg-creme-claro hover:bg-amarelo"}`}>
+      {label}
+    </a>
   );
 }
 

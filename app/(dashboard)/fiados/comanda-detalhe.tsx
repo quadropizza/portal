@@ -14,7 +14,7 @@ type Fiado = {
   id: string; nome_cliente: string; telefone: string | null; status: "aberto" | "fechado" | "pago";
   data_abertura: string; data_fechamento: string | null; total: number;
 };
-type Item = { id: string; quantidade: number; valor_unitario: number; valor_total: number; produto: { id: string; nome: string; categoria: string } };
+type Item = { id: string; quantidade: number; valor_unitario: number; valor_total: number; created_at: string; produto: { id: string; nome: string; categoria: string } };
 type Produto = { id: string; codigo: string; nome: string; categoria: string; preco_venda: number };
 
 export function ComandaDetalhe({ fiado, items, produtos }: { fiado: Fiado; items: Item[]; produtos: Produto[] }) {
@@ -100,14 +100,20 @@ export function ComandaDetalhe({ fiado, items, produtos }: { fiado: Fiado; items
       <Card>
         <div className="eyebrow mb-2">// ITENS · {items.length}</div>
         <ul className="divide-y divide-preto/10">
-          {items.map((i) => (
-            <li key={i.id} className="py-2 flex items-center gap-3 text-sm">
-              <span className="w-8 text-center font-[family-name:var(--font-mono)] font-bold">{i.quantidade}×</span>
-              <span className="flex-1">{i.produto.nome}</span>
-              <span className="text-xs text-preto/50 font-[family-name:var(--font-mono)]">{fmtBR(i.valor_unitario)}</span>
-              <span className="w-24 text-right font-[family-name:var(--font-subtitulo)]">{fmtBR(i.valor_total)}</span>
-            </li>
-          ))}
+          {items.map((i) => {
+            const hora = new Date(i.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+            return (
+              <li key={i.id} className="py-2 flex items-center gap-3 text-sm">
+                <span className="w-8 text-center font-[family-name:var(--font-mono)] font-bold">{i.quantidade}×</span>
+                <span className="flex-1">
+                  {i.produto.nome}
+                  <span className="text-[10px] text-preto/40 font-[family-name:var(--font-mono)] ml-2">{hora}</span>
+                </span>
+                <span className="text-xs text-preto/50 font-[family-name:var(--font-mono)]">{fmtBR(i.valor_unitario)}</span>
+                <span className="w-24 text-right font-[family-name:var(--font-subtitulo)]">{fmtBR(i.valor_total)}</span>
+              </li>
+            );
+          })}
         </ul>
 
         {fiado.status === "aberto" && (

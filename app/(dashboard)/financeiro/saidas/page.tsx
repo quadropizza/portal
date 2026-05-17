@@ -19,8 +19,9 @@ export default async function SaidasPage({
   const supabase = await createClient();
 
   const hoje = new Date();
-  const passado = new Date(); passado.setDate(passado.getDate() - 90);
-  const de = sp.de ?? passado.toISOString().split("T")[0];
+  // Default: pega TUDO do ano (abril em diante)
+  const inicioAno = `${hoje.getFullYear()}-01-01`;
+  const de = sp.de ?? inicioAno;
   const ate = sp.ate ?? hoje.toISOString().split("T")[0];
 
   let q = supabase
