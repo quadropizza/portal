@@ -18,8 +18,9 @@ type Pagamento = { id: string; custo_fixo_id: string; valor_pago: number; data_p
 type Cat = { id: string; nome: string };
 type Forn = { id: string; nome: string; apelido: string | null };
 
-export function CustosFixosManager({ custos, pagamentosMes, categorias, fornecedores, ano, mes }: {
+export function CustosFixosManager({ custos, pagamentosMes, categorias, fornecedores, ano, mes, atrasos }: {
   custos: Custo[]; pagamentosMes: Pagamento[]; categorias: Cat[]; fornecedores: Forn[]; ano: number; mes: number;
+  atrasos?: Record<string, number>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -27,6 +28,8 @@ export function CustosFixosManager({ custos, pagamentosMes, categorias, forneced
 
   const pagMap = new Map(pagamentosMes.map((p) => [p.custo_fixo_id, p]));
   const catMap = new Map(categorias.map((c) => [c.id, c.nome]));
+  const totalEmAtraso = Object.values(atrasos ?? {}).reduce((s, n) => s + n, 0);
+  const custosComAtraso = Object.entries(atrasos ?? {}).filter(([, n]) => n > 0).length;
   const [sugestoes, setSugestoes] = useState<Record<string, { saida_id: string | null; saida_data: string | null; saida_desc: string | null; saida_valor: number | null; motivo: string | null }>>({});
   const [carregandoSug, setCarregandoSug] = useState(false);
 
@@ -84,12 +87,17 @@ export function CustosFixosManager({ custos, pagamentosMes, categorias, forneced
   return (
     <div className="space-y-4">
       {/* Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <Card><div className="eyebrow">Total estimado/mês</div><div className="text-2xl font-[family-name:var(--font-titulo)]">{fmtBR(totalEstimado)}</div></Card>
-        <Card><div className="eyebrow">Pago neste mês</div><div className="text-2xl font-[family-name:var(--font-titulo)] text-verde">{fmtBR(totalPago)}</div></Card>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card><div className="eyebrow">Estimado/mês</div><div className="text-2xl font-[family-name:var(--font-titulo)]">{fmtBR(totalEstimado)}</div></Card>
+        <Card><div className="eyebrow">Pago no mês</div><div className="text-2xl font-[family-name:var(--font-titulo)] text-verde">{fmtBR(totalPago)}</div></Card>
         <Card className={totalPendente > 0 ? "border-vermelho border-[3px]" : ""}>
           <div className="eyebrow">Pendente</div>
           <div className={`text-2xl font-[family-name:var(--font-titulo)] ${totalPendente > 0 ? "text-vermelho" : "text-verde"}`}>{fmtBR(totalPendente)}</div>
+        </Card>
+        <Card className={totalEmAtraso > 0 ? "border-vermelho border-[3px] bg-vermelho/5" : ""}>
+          <div className="eyebrow">Em atraso</div>
+          <div className={`text-2xl font-[family-name:var(--font-titulo)] ${totalEmAtraso > 0 ? "text-vermelho" : "text-verde"}`}>{totalEmAtraso}</div>
+          {totalEmAtraso > 0 && <div className="text-[10px] font-[family-name:var(--font-mono)] mt-1 text-preto/60">{custosComAtraso} custo(s) em atraso</div>}
         </Card>
       </div>
 
@@ -121,7 +129,14 @@ export function CustosFixosManager({ custos, pagamentosMes, categorias, forneced
               const pag = pagMap.get(c.id);
               return (
                 <tr key={c.id} className={`border-t border-preto/5 ${pag ? "bg-verde/5" : ""}`}>
-                  <td className="px-3 py-2 font-[family-name:var(--font-subtitulo)]">{c.nome}</td>
+                  <td className="px-3 py-2 font-[family-name:var(--font-subtitulo)]">
+                    {c.nome}
+                    {(atrasos?.[c.id] ?? 0) > 0 && (
+                      <span className="ml-2 inline-block bg-vermelho text-white text-[10px] px-1.5 py-0.5 rounded font-[family-name:var(--font-mono)]">
+                        ⚠ {atrasos![c.id]} em atraso
+                      </span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-xs text-preto/60">{catMap.get(c.categoria_id ?? "") ?? <span className="text-vermelho">—</span>}</td>
                   <td className="px-3 py-2 text-right font-[family-name:var(--font-mono)]">{fmtBR(c.valor_estimado)}</td>
                   <td className="px-3 py-2 text-center text-xs">{c.dia_vencimento ?? "—"}</td>
