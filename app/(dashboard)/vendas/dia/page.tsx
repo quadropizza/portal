@@ -81,7 +81,12 @@ export default async function VendasDiaPage() {
 
       {vendas && vendas.length > 0 && (
         <section className="space-y-3">
-          <EyebrowTitle eyebrow="// ÚLTIMOS 14 DIAS" title="Vendas registradas" level={3} />
+          <div className="flex items-end justify-between">
+            <EyebrowTitle eyebrow="// PRÉVIA" title="Últimos lançamentos" level={3} />
+            <a href="/vendas/historico" className="text-sm font-[family-name:var(--font-subtitulo)] text-vermelho hover:underline">
+              ver histórico completo com filtro →
+            </a>
+          </div>
           <Card>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

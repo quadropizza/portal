@@ -61,26 +61,42 @@ export default async function VisaoGeralPage() {
               <p className="text-sm">Sem dados de {mesPtBR[mes-1]} ainda. Suba o relatório do PDV em <Link href="/vendas/dia" className="underline font-bold">Vendas</Link>.</p>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-              <BigNumber
-                rotulo="Faturamento até hoje"
-                valor={fmtBR(receitaA)}
-                comparacao={variacaoReceita}
-                comparacaoLabel="vs mês anterior"
-              />
-              <BigNumber
-                rotulo="Lucro projetado"
-                valor={fmtBR(lucroA)}
-                negativo={lucroA < 0}
-                hint="já desconta impostos e bancárias previstas"
-              />
-              <BigNumber
-                rotulo="Pendências críticas"
-                valor={String(urgentes.length)}
-                hint={urgentes.length > 0 ? "ações urgentes no plano" : "tudo sob controle"}
-                negativo={urgentes.length > 0}
-              />
-            </div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                <BigNumber
+                  rotulo="Faturamento até hoje"
+                  valor={fmtBR(receitaA)}
+                  comparacao={variacaoReceita}
+                  comparacaoLabel="vs mês anterior"
+                />
+                <BigNumber
+                  rotulo="Pendências críticas"
+                  valor={String(urgentes.length)}
+                  hint={urgentes.length > 0 ? "ações urgentes no plano" : "tudo sob controle"}
+                  negativo={urgentes.length > 0}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                <LucroMini
+                  rotulo="Lucro BRUTO"
+                  valor={Number(a.receita_bruta ?? 0) - Math.abs(Number(a.cmv ?? 0))}
+                  pctReceita={receitaA > 0 ? (Number(a.receita_bruta ?? 0) - Math.abs(Number(a.cmv ?? 0))) / receitaA : 0}
+                  hint="receita − CMV"
+                />
+                <LucroMini
+                  rotulo="Lucro OPERACIONAL"
+                  valor={Number(a.lucro_operacional ?? 0)}
+                  pctReceita={Number(a.margem_operacional ?? 0)}
+                  hint="− despesas op."
+                />
+                <LucroMini
+                  rotulo="Lucro LÍQUIDO previsto"
+                  valor={lucroA}
+                  pctReceita={receitaA > 0 ? lucroA / receitaA : 0}
+                  hint="− pró-labore, impostos prev."
+                />
+              </div>
+            </>
           )}
         </div>
         {p && (
@@ -159,6 +175,21 @@ export default async function VisaoGeralPage() {
       )}
 
       <PainelLacunas />
+    </div>
+  );
+}
+
+function LucroMini({ rotulo, valor, pctReceita, hint }: { rotulo: string; valor: number; pctReceita: number; hint?: string }) {
+  return (
+    <div className={cn("bg-white border-3 border-preto rounded-xl p-3 border-l-[6px]", valor >= 0 ? "border-l-verde" : "border-l-vermelho")}>
+      <div className="eyebrow text-[10px]">{rotulo}</div>
+      <div className={cn("text-xl font-[family-name:var(--font-titulo)] leading-none mt-1", valor < 0 && "text-vermelho")}>
+        {fmtBR(valor)}
+      </div>
+      <div className="text-[11px] mt-1 font-[family-name:var(--font-mono)] text-preto/60">
+        {fmtPct(pctReceita)} da receita
+      </div>
+      {hint && <div className="text-[9px] text-preto/40 mt-0.5">{hint}</div>}
     </div>
   );
 }

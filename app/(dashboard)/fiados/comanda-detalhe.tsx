@@ -134,14 +134,14 @@ export function ComandaDetalhe({ fiado, items, produtos }: { fiado: Fiado; items
           {fiado.status === "fechado" && (
             <>
               <Button onClick={() => pagar("pix")} disabled={pending} variant="vermelho">
-                <CheckCircle2 size={14} /> Pago via PIX
+                <CheckCircle2 size={14} /> Pago PIX
               </Button>
-              <Button onClick={() => pagar("dinheiro")} disabled={pending} variant="creme">
-                Pago em dinheiro
-              </Button>
+              <Button onClick={() => pagar("debito")} disabled={pending} variant="creme">Débito</Button>
+              <Button onClick={() => pagar("credito")} disabled={pending} variant="creme">Crédito</Button>
+              <Button onClick={() => pagar("dinheiro")} disabled={pending} variant="creme">Dinheiro</Button>
               {whatsappLink() && (
                 <a href={whatsappLink()!} target="_blank" rel="noreferrer" className="btn-bruto btn-creme">
-                  <MessageCircle size={14} /> Reenviar WhatsApp
+                  <MessageCircle size={14} /> Reenviar
                 </a>
               )}
             </>

@@ -39,7 +39,12 @@ export default async function ContagemPizzaPage() {
 
   return (
     <div className="space-y-8 max-w-5xl">
-      <EyebrowTitle eyebrow="// CONTAGEM" title="Contagem de pizzas prontas" level={1} />
+      <div className="flex items-end justify-between gap-3">
+        <EyebrowTitle eyebrow="// CONTAGEM" title="Contagem de pizzas prontas" level={1} />
+        <a href="/estoque/contagem-pizza/historico" className="text-sm font-[family-name:var(--font-subtitulo)] text-vermelho hover:underline">
+          histórico →
+        </a>
+      </div>
 
       <Card variant="creme">
         <p className="text-sm">
