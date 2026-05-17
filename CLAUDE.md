@@ -814,6 +814,22 @@ plano_acao_item (
 
 ---
 
+## ESTADO ATUAL DO REPO (2026-05-16)
+
+Fases entregues no commit principal:
+
+- ✅ Fase 1: schema + auth fechada + dashboard Visão Geral + Painel Lacunas + Plano automático
+- ✅ Fase 2: parser PDV + upload de vendas + dashboard com 5 gráficos + CRUD produtos
+- ✅ Fase 3: parser extrato Sicredi (só saídas) + categorização em lote + CRUD fornecedores + categorias + obrigações
+- ✅ Fase 4: CRUD insumos + parser NF-e XML (criação automática de obrigação) + contagem com divergência + trigger de custo médio
+- ✅ Fase 5: CRUD ficha técnica com versionamento + registro de produção em lote (trigger baixa insumos)
+- ✅ Fase 6: DRE mensal com 2 visões de lucro + comparação mês anterior + detalhamento por categoria
+- ✅ Fase 7: gerar_plano_mensal idempotente + cron documentado (precisa ativar via pg_cron no Supabase)
+- ✅ Fase 8: engine V001/V005 + R005/R006 + P001/P002/P003/P006/P008 aplicado dentro da geração mensal
+- ⏭️ Fase 9: simulador, ABC, PWA — refinamentos pra depois conforme demanda
+
+---
+
 ## 10. Dados de referência (abril/2026, do protótipo)
 
 Esses números são a **baseline** do que a plataforma vai validar com dados
