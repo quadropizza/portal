@@ -78,7 +78,8 @@ export async function PainelLacunas() {
               {items.slice(0, 5).map((l) => (
                 <li key={l.registro_id}>
                   <Link
-                    href={l.link_resolver as `/${string}`}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    href={l.link_resolver as any}
                     className="flex items-center justify-between gap-2 text-sm hover:bg-amarelo/30 rounded px-2 py-1 -mx-2"
                   >
                     <span className="truncate">{l.descricao}</span>

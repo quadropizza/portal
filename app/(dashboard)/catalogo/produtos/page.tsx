@@ -104,7 +104,15 @@ export default async function CatalogoProdutosPage() {
                       <td className="px-4 py-2 text-center text-xs">
                         {p.ativo ? <span className="text-verde">ativo</span> : <span className="text-preto/40">inativo</span>}
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        {p.produzido_em_lote && (
+                          <Link
+                            href={`/catalogo/fichas-tecnicas/${p.id}`}
+                            className="text-xs font-[family-name:var(--font-subtitulo)] text-preto hover:text-vermelho mr-3"
+                          >
+                            {comFicha.has(p.id) ? "ver ficha" : "criar ficha"}
+                          </Link>
+                        )}
                         <Link
                           href={`/catalogo/produtos/${p.id}`}
                           className="text-xs font-[family-name:var(--font-subtitulo)] text-vermelho hover:underline"

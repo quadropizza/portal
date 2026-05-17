@@ -13,7 +13,9 @@ import {
 const items = [
   { href: "/visao-geral",        nome: "Visão geral",  icon: LayoutDashboard, match: "/visao-geral" },
   { href: "/vendas/dia",         nome: "Vendas",       icon: ShoppingBag,     match: "/vendas" },
-  { href: "/estoque/insumos",    nome: "Estoque",      icon: Package,         match: "/estoque" },
+  { href: "/estoque/insumos",    nome: "Estoque",      icon: Package,         match: "/estoque/insumos" },
+  { href: "/estoque/producao",   nome: "Produção",     icon: Pizza,           match: "/estoque/producao" },
+  { href: "/estoque/contagem-pizza", nome: "Contar pizzas", icon: Pizza,      match: "/estoque/contagem" },
   { href: "/financeiro/saidas",  nome: "Financeiro",   icon: Wallet,          match: "/financeiro" },
   { href: "/notas-fiscais",      nome: "NFs / Contas", icon: FileText,        match: "/notas-fiscais" },
   { href: "/dre",                nome: "DRE",          icon: BarChart3,       match: "/dre" },
