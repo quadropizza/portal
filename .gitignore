@@ -40,12 +40,18 @@ DRE*.pdf
 *.xls
 *.csv
 
-# Arquivos temporários de extração
+# Arquivos temporários de extração e prototipagem
 *.tmp
 b17893.txt
 b17926.txt
 darf.txt
 gfd.txt
+rel_abril.txt
+rel_maio.txt
+abril_sales.json
+maio_sales.json
+dre_sheet.xml
+dre_strings.xml
 
 # Anexos genéricos do dono (qualquer coisa que ele jogue na raiz pra alimentar)
 anexos/

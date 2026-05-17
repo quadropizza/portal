@@ -329,11 +329,14 @@ insumo (
   nome text,                         -- "Queijo Mussarela", "Calabresa Aurora"
   unidade_padrao text,               -- 'kg','un','l'
   custo_medio_atual decimal,         -- recalculado a cada NF entrante (média ponderada)
+  custo_origem text default 'seed',  -- 'seed' (do .docx, não confirmado por NF) | 'nf' (real) | 'manual' (digitado)
   ultimo_custo decimal,
   ultima_compra_data date,
   fornecedor_principal_id uuid references fornecedor,
   ativo bool default true
 )
+-- Quando custo_origem='seed', a UI mostra ícone amarelo e o insumo entra no
+-- painel "Tá faltando preencher" — primeiro NF que vier substitui pra 'nf'.
 
 estoque_insumo_movimento (
   id uuid pk,
@@ -683,6 +686,26 @@ plano_acao_item (
 18. **OFX do Sicredi não está disponível** — só PDF. Parser de extrato precisa ser robusto a quebras de layout (Sicredi quebra colunas em linhas longas). Roadmap: se Sicredi liberar OFX no futuro, migrar pra ele como fonte primária.
 19. **Tela de ficha técnica permite criar e atualizar a qualquer momento** — cada alteração gera nova `versao` mantendo histórico. Custo de produção lançado em produções passadas usa a versão que estava ativa naquela data.
 20. **Repositório git público é privado por padrão** — código pode ser aberto no futuro, mas anexos (extratos, NFs, vendas detalhadas) **nunca** vão pro git. Ficam só no Supabase Storage com RLS. `.gitignore` protege a pasta de trabalho local.
+21. **Custo do item vem SEMPRE da NF, nunca do .docx da ficha técnica.** A ficha técnica define só as PROPORÇÕES de insumo por pizza (`0.045 kg queijo`, `0.020 kg calabresa` etc). O custo é calculado em tempo real como `Σ (qtd_ficha × insumo.custo_medio_atual)`. Quando o usuário sobe a ficha .docx pela primeira vez, os valores monetários ali viram **seed** (`custo_medio_atual` marcado com `origem='seed'`) — assim que chegar a primeira NF-e contendo aquele insumo, o seed é substituído pelo custo real e nunca mais é usado. Margem por produto e CMV teórico são SEMPRE recalculados a partir do estado atual dos insumos.
+22. **Auth fechada — só 2 usuários pré-cadastrados:**
+    - Usuário 1: `lucasgabrieldossantos` (Lucas)
+    - Usuário 2: `alessandrafurlani` (Alessandra)
+    - **Sem cadastro público** (rota de signup removida do Supabase Auth)
+    - **Sem tela de "esqueci a senha" nem de alterar senha** dentro do app
+    - Reset de senha (se necessário) só via Supabase Console manualmente pelo admin
+    - As **senhas em si NUNCA são versionadas no git** — ficam só no Supabase Auth (hash bcrypt). Criação dos usuários é feita uma vez, manualmente, no Supabase Console (Auth → Users → Invite) ou via script `supabase/seed.local.sql` que carrega de `.env.local` (também ignorado pelo git).
+    - Senhas definidas pelo dono no setup. Critério da Alessandra: 7 chars com mixed case e dígitos (suficiente pra uso interno; revisitar se app expor além da equipe).
+
+23. **Princípio "sinalizar lacunas"** — toda entidade com dado faltando dispara alerta visível no painel `Tá faltando preencher`. Casos cobertos:
+    - Produto vendido sem ficha técnica cadastrada
+    - Insumo na ficha sem custo confirmado (ainda no seed da .docx ou totalmente sem custo)
+    - Insumo de NF não vinculado a nenhum item do catálogo
+    - Venda com código de produto não cadastrado
+    - Mês fechando sem estoque inicial/final preenchido
+    - Fornecedor cadastrado sem categoria padrão
+    - Saída do extrato sem categoria atribuída
+    - Boleto vencido sem comprovante de pagamento
+    Cada lacuna vira card no painel com link direto pra tela que resolve. **Sistema nunca chuta valor pra "fechar a conta"** — sempre prefere mostrar `?` e pedir preenchimento.
 
 ---
 
