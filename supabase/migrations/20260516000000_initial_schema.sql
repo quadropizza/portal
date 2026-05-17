@@ -91,7 +91,7 @@ create unique index ficha_tecnica_unica_ativa
 create table ficha_tecnica_item (
   id                  uuid primary key default uuid_generate_v4(),
   ficha_tecnica_id    uuid not null references ficha_tecnica on delete cascade,
-  insumo_id           uuid not null references insumo,
+  insumo_id           uuid not null,             -- FK adicionada depois (insumo criado abaixo)
   quantidade          numeric(12,4) not null,
   unidade             text not null              -- 'kg','g','un','l','ml'
 );

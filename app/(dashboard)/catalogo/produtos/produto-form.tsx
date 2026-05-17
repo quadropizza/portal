@@ -49,7 +49,7 @@ export function ProdutoForm({
     startTransition(async () => {
       const r = await salvarProduto(fd);
       if (r.ok) router.push("/catalogo/produtos");
-      else setErro(r.erro);
+      else setErro(r.erro ?? "erro");
     });
   }
 

@@ -1,24 +1,8 @@
-// =====================================================================
-// Tipos gerados pelo Supabase CLI:
-//   npx supabase gen types typescript --linked > types/supabase.ts
-//
-// Este arquivo é placeholder até o projeto Supabase ser criado e
-// vinculado. Por enquanto, mantém o build de TS funcionando.
-// =====================================================================
+// Placeholder permissivo até rodar:
+//   npx supabase gen types typescript --project-id rwcancyyvmcpufaxtqus > types/supabase.ts
+// (precisa npm i -g supabase, ou usar npx supabase via CLI logado)
 
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[];
+export type Json = unknown;
 
-export type Database = {
-  public: {
-    Tables: Record<string, { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown> }>;
-    Views: Record<string, { Row: Record<string, unknown> }>;
-    Functions: Record<string, unknown>;
-    Enums: Record<string, string>;
-  };
-};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Database = any;
