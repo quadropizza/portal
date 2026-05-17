@@ -72,6 +72,10 @@ dist/
 # =====================================================================
 .env
 .env.local
+backfill_*.mjs
+backfill_*.js
+backfill_*.sql
+rel_maio.txt
 .env*.local
 .env.production
 .env.development.local

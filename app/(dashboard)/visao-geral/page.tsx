@@ -20,9 +20,9 @@ export default async function VisaoGeralPage() {
   const ano = hoje.getFullYear();
   const mes = hoje.getMonth() + 1;
 
-  // DRE topline pro hero
+  // Métricas completas (lucro previsto considerando impostos+bancárias do histórico)
   const { data: dre } = await supabase
-    .from("dre_mensal")
+    .from("metricas_completas")
     .select("*")
     .eq("ano", ano)
     .eq("mes", mes)
@@ -33,7 +33,9 @@ export default async function VisaoGeralPage() {
   const cmv = d.cmv ?? 0;
   const cmvPct = receita > 0 ? Math.abs(cmv) / receita : 0;
   const lucroOp = d.lucro_operacional ?? 0;
+  const lucroOpPrevisto = d.lucro_operacional_previsto ?? lucroOp;
   const lucroSocio = d.lucro_socio ?? 0;
+  const lucroSocioPrevisto = d.lucro_socio_previsto ?? lucroSocio;
 
   // Plano de ação resumo
   const { data: planoRows } = await supabase
@@ -84,16 +86,16 @@ export default async function VisaoGeralPage() {
             destaque={cmvPct > 0.35 ? "vermelho" : "verde"}
           />
           <StatCard
-            label="Lucro operacional"
-            valor={fmtBR(lucroOp)}
-            hint="antes do pró-labore"
-            destaque={lucroOp >= 0 ? "verde" : "vermelho"}
+            label="Lucro op. previsto"
+            valor={fmtBR(lucroOpPrevisto)}
+            hint="já desc. impostos+banco prev."
+            destaque={lucroOpPrevisto >= 0 ? "verde" : "vermelho"}
           />
           <StatCard
-            label="Lucro do sócio"
-            valor={fmtBR(lucroSocio)}
+            label="Lucro do sócio prev."
+            valor={fmtBR(lucroSocioPrevisto)}
             hint="depois do pró-labore"
-            destaque={lucroSocio >= 0 ? "verde" : "vermelho"}
+            destaque={lucroSocioPrevisto >= 0 ? "verde" : "vermelho"}
           />
         </section>
       )}
