@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+/* =====================================================================
+   Tokens da marca Quadrô (§2 do CLAUDE.md — identidade congelada)
+   ===================================================================== */
+@theme {
+  /* Cores ----------------------------------------------------------- */
+  --color-vermelho:         #D32027;
+  --color-vermelho-escuro:  #9E1015;
+  --color-amarelo:          #FFC528;
+  --color-amarelo-escuro:   #E5A800;
+  --color-creme:            #F2E8D5;
+  --color-creme-claro:      #F8F1E0;
+  --color-preto:            #1A1410;
+  --color-verde:            #2E7D32;
+  --color-verde-claro:      #4CAF50;
+  --color-laranja:          #E8742C;
+
+  /* Tipografia (Bowlby/Archivo/Space Mono/DM Sans via Google Fonts) - */
+  --font-titulo:    "Bowlby One", system-ui, sans-serif;
+  --font-subtitulo: "Archivo Black", system-ui, sans-serif;
+  --font-mono:      "Space Mono", ui-monospace, monospace;
+  --font-corpo:     "DM Sans", system-ui, sans-serif;
+
+  /* Sombras sólidas neo-brutalistas (§2) -------------------------- */
+  --shadow-bruto:       4px 4px 0 #1A1410;
+  --shadow-bruto-lg:    6px 6px 0 #1A1410;
+  --shadow-bruto-xl:    8px 8px 0 #1A1410;
+  --shadow-bruto-hover: 2px 2px 0 #1A1410;
+
+  /* Raios padrão ---------------------------------------------------- */
+  --radius-card:    1rem;       /* 16px */
+  --radius-card-lg: 1.5rem;     /* 24px */
+}
+
+/* =====================================================================
+   Base
+   ===================================================================== */
+html, body {
+  background: var(--color-creme);
+  color: var(--color-preto);
+  font-family: var(--font-corpo);
+  font-feature-settings: "ss01", "cv11";
+}
+
+::selection {
+  background: var(--color-amarelo);
+  color: var(--color-preto);
+}
+
+/* Eyebrows tipo "// 01 · BLOCO" ----------------------------------- */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-preto);
+  opacity: 0.7;
+}
+
+/* Faixa xadrez decorativa ----------------------------------------- */
+.xadrez {
+  background-image:
+    linear-gradient(45deg, var(--color-preto) 25%, transparent 25%, transparent 75%, var(--color-preto) 75%),
+    linear-gradient(45deg, var(--color-preto) 25%, var(--color-amarelo) 25%, var(--color-amarelo) 75%, var(--color-preto) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+}
+
+/* Tag rotacionada (decorativo) ------------------------------------ */
+.tag-girada {
+  display: inline-block;
+  transform: rotate(-2deg);
+  background: var(--color-amarelo);
+  border: 3px solid var(--color-preto);
+  padding: 0.25rem 0.75rem;
+  font-family: var(--font-subtitulo);
+  box-shadow: var(--shadow-bruto);
+}
+
+/* Botão neo-brutalista padrão ------------------------------------- */
+.btn-bruto {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--color-amarelo);
+  color: var(--color-preto);
+  border: 3px solid var(--color-preto);
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-subtitulo);
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-bruto);
+  transition: transform 80ms ease, box-shadow 80ms ease;
+  cursor: pointer;
+}
+.btn-bruto:hover  { transform: translate(2px, 2px); box-shadow: var(--shadow-bruto-hover); }
+.btn-bruto:active { transform: translate(4px, 4px); box-shadow: 0 0 0 #1A1410; }
+.btn-bruto:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-vermelho { background: var(--color-vermelho); color: white; }
+.btn-creme    { background: var(--color-creme-claro); }
+
+/* Card neo-brutalista --------------------------------------------- */
+.card-bruto {
+  background: white;
+  border: 3px solid var(--color-preto);
+  border-radius: var(--radius-card);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-bruto);
+}
+
+.card-bruto-lg { border-radius: var(--radius-card-lg); padding: 1.75rem; }
+
+/* Estrelinha amarela ornamental ----------------------------------- */
+.estrela {
+  color: var(--color-amarelo);
+  filter: drop-shadow(1.5px 1.5px 0 var(--color-preto));
+}
