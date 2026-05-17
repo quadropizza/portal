@@ -125,16 +125,19 @@ export function CustosFixosManager({ custos, pagamentosMes, categorias, forneced
                   <td className="px-3 py-2 text-xs text-preto/60">{catMap.get(c.categoria_id ?? "") ?? <span className="text-vermelho">—</span>}</td>
                   <td className="px-3 py-2 text-right font-[family-name:var(--font-mono)]">{fmtBR(c.valor_estimado)}</td>
                   <td className="px-3 py-2 text-center text-xs">{c.dia_vencimento ?? "—"}</td>
-                  <td className="px-3 py-2 text-center">
+                  <td className="px-3 py-2 text-left">
                     {pag ? (
-                      <span className="text-xs text-verde flex items-center justify-center gap-1">
+                      <span className="text-xs text-verde flex items-center gap-1">
                         <CheckCircle2 size={12} /> pago {fmtBR(pag.valor_pago)}
                       </span>
                     ) : sugestoes[c.id] ? (
-                      <div className="text-xs space-y-0.5">
-                        <div className="bg-amarelo border border-preto px-1.5 py-0.5 rounded text-[10px]">
-                          <Sparkles size={9} className="inline mr-0.5" />
-                          <strong>{fmtBR(Number(sugestoes[c.id].saida_valor))}</strong> · {new Date(sugestoes[c.id].saida_data!).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                      <div className="bg-amarelo/40 border border-amarelo-escuro px-2 py-1 rounded text-[11px] space-y-0.5">
+                        <div className="flex items-center gap-1 font-[family-name:var(--font-subtitulo)]">
+                          <Sparkles size={9} />
+                          {fmtBR(Number(sugestoes[c.id].saida_valor))} · {new Date(sugestoes[c.id].saida_data!).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                        </div>
+                        <div className="text-[10px] text-preto/70 truncate max-w-[260px]" title={sugestoes[c.id].saida_desc ?? ""}>
+                          {sugestoes[c.id].saida_desc}
                         </div>
                       </div>
                     ) : (

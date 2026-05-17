@@ -38,13 +38,18 @@ export function SugerirSaidaNf({ nfId }: { nfId: string }) {
   if (estado === "buscando") return <span className="text-xs text-preto/50">buscando...</span>;
   if (estado === "naoachou") return <span className="text-xs text-preto/50">sem match no extrato</span>;
   return (
-    <div className="text-xs flex items-center gap-1.5">
-      <span className="bg-amarelo border-2 border-preto px-1.5 py-0.5 rounded font-[family-name:var(--font-mono)]">
-        {fmtBR(Number(sugestao!.saida_valor))} · {fmtDataBR(sugestao!.saida_data!)}
-      </span>
+    <div className="text-xs flex flex-col gap-1 max-w-[280px]">
+      <div className="bg-amarelo border-2 border-preto px-2 py-1 rounded">
+        <div className="font-[family-name:var(--font-subtitulo)]">
+          {fmtBR(Number(sugestao!.saida_valor))} · {fmtDataBR(sugestao!.saida_data!)}
+        </div>
+        <div className="text-[10px] text-preto/70 truncate" title={sugestao!.saida_desc ?? ""}>
+          {sugestao!.saida_desc}
+        </div>
+      </div>
       <button onClick={aceitar} disabled={pending}
-        className="bg-verde text-white px-2 py-0.5 rounded text-xs font-[family-name:var(--font-subtitulo)] flex items-center gap-0.5">
-        <Check size={10} /> aceitar
+        className="bg-verde text-white px-2 py-0.5 rounded text-xs font-[family-name:var(--font-subtitulo)] flex items-center gap-0.5 justify-center">
+        <Check size={10} /> aceitar e vincular
       </button>
     </div>
   );
