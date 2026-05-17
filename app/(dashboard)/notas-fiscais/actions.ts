@@ -92,22 +92,104 @@ export async function uploadNfe(formData: FormData): Promise<{ ok: boolean; erro
     };
   }
 
-  // PDF/IMG: cria obrigação em rascunho com vencimento hoje, pra usuário editar
+  // PDF/IMG: tenta extrair texto ou usar OCR
   const tipoPalpite = nome.includes("darf") ? "tributo"
                     : nome.includes("fgts") ? "encargo_trabalhista"
                     : "boleto_avulso";
+
+  let valor = 0;
+  let vencimento = new Date().toISOString().split("T")[0];
+  let numero: string | null = null;
+  let competencia: string | null = null;
+  let fornecedorCnpj: string | null = null;
+  let fornecedorNome: string | null = null;
+  let analiseOk = false;
+  let detalhe = "";
+
+  try {
+    if (isPdf) {
+      // 1. Tenta extrair texto direto (boleto Ivanor funciona, DARF/FGTS retorna vazio)
+      const { extractPdfText } = await import("@/lib/pdf-extract");
+      const texto = await extractPdfText(buf);
+
+      if (texto.length > 500) {
+        // PDF com texto — usar parser de boleto
+        const { parseBoletoPdf } = await import("@/lib/parsers/boleto-pdf");
+        const b = parseBoletoPdf(texto);
+        if (b.valor) valor = b.valor;
+        if (b.vencimento) vencimento = b.vencimento;
+        if (b.numero) numero = b.numero;
+        if (b.fornecedor_cnpj) fornecedorCnpj = b.fornecedor_cnpj;
+        if (b.fornecedor_nome) fornecedorNome = b.fornecedor_nome;
+        if (b.valor) { analiseOk = true; detalhe = "parser boleto (texto)"; }
+      }
+
+      if (!analiseOk) {
+        // PDF imagem (DARF/FGTS) — usa Vision
+        const { ocrPdfImagem } = await import("@/lib/ocr-vision");
+        const r = await ocrPdfImagem(buf);
+        if (r.ok) {
+          if (r.valor) valor = r.valor;
+          if (r.vencimento) vencimento = r.vencimento;
+          if (r.numero) numero = r.numero;
+          if (r.competencia) competencia = r.competencia;
+          if (r.fornecedor_cnpj) fornecedorCnpj = r.fornecedor_cnpj;
+          if (r.fornecedor_nome) fornecedorNome = r.fornecedor_nome;
+          analiseOk = true; detalhe = "OCR via Vision (PDF imagem)";
+        } else {
+          detalhe = `Sem extração automática: ${r.erro}`;
+        }
+      }
+    } else if (isImg) {
+      // Foto — Vision
+      const { ocrImagem } = await import("@/lib/ocr-vision");
+      const r = await ocrImagem(buf, mime);
+      if (r.ok) {
+        if (r.valor) valor = r.valor;
+        if (r.vencimento) vencimento = r.vencimento;
+        if (r.numero) numero = r.numero;
+        if (r.fornecedor_cnpj) fornecedorCnpj = r.fornecedor_cnpj;
+        if (r.fornecedor_nome) fornecedorNome = r.fornecedor_nome;
+        analiseOk = true; detalhe = "OCR via Vision (foto)";
+      } else {
+        detalhe = `Sem extração automática: ${r.erro}`;
+      }
+    }
+  } catch (e) {
+    detalhe = `Erro: ${e instanceof Error ? e.message : String(e)}`;
+  }
+
+  // Cadastra fornecedor se não existe
+  let fornecedorId: string | null = null;
+  if (fornecedorCnpj) {
+    const cnpj = fornecedorCnpj.replace(/\D/g, "");
+    const { data: existente } = await supabase.from("fornecedor")
+      .select("id").eq("empresa_id", empresaId).eq("cnpj", cnpj).maybeSingle();
+    if (existente) fornecedorId = (existente as { id: string }).id;
+    else if (fornecedorNome) {
+      const { data: novo } = await supabase.from("fornecedor")
+        .insert({ empresa_id: empresaId, cnpj, nome: fornecedorNome })
+        .select("id").single();
+      fornecedorId = (novo as { id: string } | null)?.id ?? null;
+    }
+  }
+
   const { data: obrig } = await supabase.from("obrigacao_a_pagar").insert({
-    empresa_id: empresaId, tipo: tipoPalpite,
-    data_vencimento: new Date().toISOString().split("T")[0],
-    valor_total: 0, arquivo_pdf_id: anexoId, parsed: false,
-    observacoes: `Anexo: ${file.name} — preencher valor, vencimento e categoria.`,
+    empresa_id: empresaId, tipo: tipoPalpite, fornecedor_id: fornecedorId,
+    data_vencimento: vencimento, valor_total: valor, numero, competencia,
+    arquivo_pdf_id: anexoId, parsed: analiseOk,
+    observacoes: `${file.name} · ${detalhe}`,
   }).select("id").single();
   const obrigId = (obrig as { id: string } | null)?.id;
 
   revalidatePath("/notas-fiscais");
   return {
     ok: true, obrigacao_id: obrigId,
-    resumo: { fornecedor: file.name, valor: 0, itens: 0, tipo: isPdf ? "PDF (preencher dados)" : "Foto (preencher dados)" },
+    resumo: {
+      fornecedor: fornecedorNome ?? file.name,
+      valor, itens: 0,
+      tipo: analiseOk ? `${tipoPalpite} · ${detalhe}` : `${tipoPalpite} · preencher manualmente`,
+    },
   };
 }
 

@@ -35,10 +35,19 @@ export type ParseResult = {
  * persiste com idempotência (unique constraint em venda_individual).
  */
 export function parsePdvText(rawIn: string): ParseResult {
-  // Normaliza: junta "VENDA:" + número que aparece em linha separada (pdf2json)
-  const raw = rawIn
+  // Normalizações pra suportar tanto pdftotext quanto pdf2json:
+  // 1) "VENDA:" sozinho + numero na próxima linha → junta
+  // 2) "DATA DE EMISSÃO:" sozinho + data na próxima → junta
+  // 3) Linha de valores "X,XX N 0,00 0,00 0,00 X,XX" seguida de "cod - NOME" → junta
+  let raw = rawIn
     .replace(/VENDA:\s*\n+\s*(\d+)/g, "VENDA: $1")
     .replace(/DATA DE EMISS\S+O:\s*\n+\s*(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}:\d{2})/g, "DATA DE EMISSÃO: $1");
+
+  // Junta linha de valores + linha de produto (formato pdf2json)
+  raw = raw.replace(
+    /^([\d.,]+)\s+(\d+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s*\n\s*(\d+)\s+-\s+([^\n]+?)\s+UN\s*$/gm,
+    "$7 - $8    UN  $1  $2  $3  $4  $5  $6"
+  );
 
   // Cada bloco começa em "VENDA: <id>" e vai até a próxima ocorrência
   const blockRe = /VENDA:\s+\d+[\s\S]*?(?=VENDA:\s+\d+|$)/g;
@@ -95,19 +104,31 @@ function extractItems(blockText: string): VendaItem[] {
     // pular linhas de pagamento
     if (/(CARTAO|DINHEIRO|PIX|VOUCHER|TRANSFER|TIPO DE LAN|TOTAL DOS PAG)/i.test(line)) continue;
 
-    // Padrão: "  COD - NOME PRODUTO    QTD    ...    TOTAL"
-    const m = line.match(
+    // Padrão clássico pdftotext: "  COD - NOME    QTD ... TOTAL$"
+    let m = line.match(
       /^\s*(\d+)\s+-\s+([A-Z0-9ÀÁÂÃÄÅÇÉÊËÍÎÏÑÓÔÕÖÚÛÜ \-\/\(\)\.,&'À-ſ�]+?)\s{2,}(\d+)\s+(?:\d+,\d{2}\s+)?\s*([\d.]+,\d{2})\s*$/,
     );
-    if (!m) continue;
+    if (m) {
+      out.push({
+        codigo: m[1],
+        nome: m[2].replace(/\s+/g, " ").trim(),
+        qtd: parseInt(m[3], 10),
+        total: parseFloat(m[4].replace(/\./g, "").replace(",", ".")),
+      });
+      continue;
+    }
 
-    const codigo = m[1];
-    const nome = m[2].replace(/\s+/g, " ").trim();
-    const qtd = parseInt(m[3], 10);
-    const total = parseFloat(m[4].replace(/\./g, "").replace(",", "."));
-
-    if (qtd > 0 && total >= 0) {
-      out.push({ codigo, nome, qtd, total });
+    // Padrão pdf2json após normalização: "COD - NOME UN vUn qtd 0,00 0,00 0,00 total"
+    m = line.match(
+      /^\s*(\d+)\s+-\s+([A-Z0-9ÀÁÂÃÄÅÇÉÊËÍÎÏÑÓÔÕÖÚÛÜ \-\/\(\)\.,&'À-ſ�]+?)\s+UN\s+([\d.]+,\d{2})\s+(\d+)\s+[\d.]+,\d{2}\s+[\d.]+,\d{2}\s+[\d.]+,\d{2}\s+([\d.]+,\d{2})/,
+    );
+    if (m) {
+      out.push({
+        codigo: m[1],
+        nome: m[2].replace(/\s+/g, " ").trim(),
+        qtd: parseInt(m[4], 10),
+        total: parseFloat(m[5].replace(/\./g, "").replace(",", ".")),
+      });
     }
   }
   return out;
