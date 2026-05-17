@@ -82,7 +82,14 @@ export default async function VisaoGeralPage() {
                   negativo={urgentes.length > 0}
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+                <LucroMini
+                  rotulo="CMV"
+                  valor={Math.abs(Number(a.cmv ?? 0))}
+                  pctReceita={Number(a.cmv_pct ?? 0)}
+                  hint="meta ≤ 35%"
+                  forcarVermelho={(Number(a.cmv_pct ?? 0) > 0.35)}
+                />
                 <LucroMini
                   rotulo="Lucro BRUTO"
                   valor={Number(a.receita_bruta ?? 0) - Math.abs(Number(a.cmv ?? 0))}
@@ -185,11 +192,12 @@ export default async function VisaoGeralPage() {
   );
 }
 
-function LucroMini({ rotulo, valor, pctReceita, hint }: { rotulo: string; valor: number; pctReceita: number; hint?: string }) {
+function LucroMini({ rotulo, valor, pctReceita, hint, forcarVermelho }: { rotulo: string; valor: number; pctReceita: number; hint?: string; forcarVermelho?: boolean }) {
+  const vermelho = forcarVermelho ?? (valor < 0);
   return (
-    <div className={cn("bg-white border-3 border-preto rounded-xl p-3 border-l-[6px]", valor >= 0 ? "border-l-verde" : "border-l-vermelho")}>
+    <div className={cn("bg-white border-3 border-preto rounded-xl p-3 border-l-[6px]", vermelho ? "border-l-vermelho" : "border-l-verde")}>
       <div className="eyebrow text-[10px]">{rotulo}</div>
-      <div className={cn("text-xl font-[family-name:var(--font-titulo)] leading-none mt-1", valor < 0 && "text-vermelho")}>
+      <div className={cn("text-xl font-[family-name:var(--font-titulo)] leading-none mt-1", vermelho && "text-vermelho")}>
         {fmtBR(valor)}
       </div>
       <div className="text-[11px] mt-1 font-[family-name:var(--font-mono)] text-preto/60">

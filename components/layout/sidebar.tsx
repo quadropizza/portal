@@ -21,8 +21,7 @@ const itemsDono = [
   { href: "/notas-fiscais",          nome: "NFs / Contas", icon: FileText,        match: "/notas-fiscais" },
   { href: "/dre",                    nome: "DRE",          icon: BarChart3,       match: "/dre" },
   { href: "/plano-de-acao",          nome: "Plano",        icon: CheckSquare,     match: "/plano-de-acao" },
-  { href: "/catalogo/produtos",        nome: "Catálogo",       icon: Pizza,  match: "/catalogo/produtos" },
-  { href: "/catalogo/fichas-tecnicas", nome: "Fichas + lucro", icon: Pizza,  match: "/catalogo/fichas" },
+  { href: "/catalogo/produtos",        nome: "Catálogo",       icon: Pizza,  match: "/catalogo" },
   { href: "/configuracoes",          nome: "Configurações", icon: Settings,       match: "/configuracoes" },
 ];
 

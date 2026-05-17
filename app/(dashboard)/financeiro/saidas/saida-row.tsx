@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { trocarCategoria } from "./actions";
+import { trocarCategoria, criarCategoria } from "./actions";
 import { fmtBR, fmtDataBR } from "@/lib/utils";
-import { Check } from "lucide-react";
+import { Check, Plus } from "lucide-react";
 
 type Categoria = { id: string; nome: string; grupo: string };
 type Saida = {
@@ -19,6 +19,26 @@ export function SaidaRow({ saida, categorias }: { saida: Saida; categorias: Cate
   const [salvo, setSalvo] = useState(false);
 
   function onChange(novaCatId: string) {
+    if (novaCatId === "__nova__") {
+      const nome = prompt("Nome da nova categoria:");
+      if (!nome) return;
+      const grupo = prompt("Grupo (cmv / folha / impostos / aluguel / bancarias / outros):", "outros") ?? "outros";
+      const fd = new FormData();
+      fd.set("nome", nome); fd.set("grupo", grupo);
+      startTransition(async () => {
+        const r = await criarCategoria(fd);
+        if (r.ok && r.id) {
+          const fd2 = new FormData();
+          fd2.set("id", saida.id); fd2.set("categoria_id", r.id);
+          await trocarCategoria(fd2);
+          setSalvo(true);
+          setTimeout(() => setSalvo(false), 1500);
+        } else {
+          alert(r.erro ?? "erro");
+        }
+      });
+      return;
+    }
     const fd = new FormData();
     fd.set("id", saida.id);
     fd.set("categoria_id", novaCatId);

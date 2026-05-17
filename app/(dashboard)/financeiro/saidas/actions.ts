@@ -218,6 +218,26 @@ export async function trocarCategoria(formData: FormData): Promise<{ ok: boolean
   return { ok: true };
 }
 
+export async function criarCategoria(formData: FormData): Promise<{ ok: boolean; erro?: string; id?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, erro: "não auth" };
+  const { data: u } = await supabase.from("usuario").select("empresa_id").eq("id", user.id).maybeSingle();
+  const empresaId = (u as { empresa_id?: string } | null)?.empresa_id;
+  if (!empresaId) return { ok: false, erro: "sem empresa" };
+
+  const nome = String(formData.get("nome") || "").trim();
+  const grupo = String(formData.get("grupo") || "outros");
+  if (!nome) return { ok: false, erro: "Nome obrigatório" };
+
+  const { data, error } = await supabase.from("categoria_despesa")
+    .insert({ empresa_id: empresaId, nome, grupo, ordem: 100 })
+    .select("id").single();
+  if (error) return { ok: false, erro: error.message };
+  revalidatePath("/financeiro/saidas");
+  return { ok: true, id: (data as { id: string }).id };
+}
+
 export async function deletarSaida(formData: FormData) {
   const id = String(formData.get("id"));
   const supabase = await createClient();

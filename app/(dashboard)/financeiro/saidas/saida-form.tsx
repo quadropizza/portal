@@ -4,8 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { salvarSaidaManual, deletarSaida } from "./actions";
-import { Trash2 } from "lucide-react";
+import { salvarSaidaManual, deletarSaida, criarCategoria } from "./actions";
+import { Trash2, Plus } from "lucide-react";
 
 type Cat = { id: string; nome: string; grupo: string };
 type Forn = { id: string; nome: string; apelido: string | null };
@@ -74,7 +74,20 @@ export function SaidaForm({
             className="w-full px-3 py-2 border-3 border-preto rounded-lg bg-creme-claro" />
         </div>
         <div>
-          <label className="eyebrow block mb-1">Categoria</label>
+          <label className="eyebrow block mb-1 flex items-center justify-between">
+            <span>Categoria</span>
+            <button type="button" onClick={async () => {
+              const nome = prompt("Nome da nova categoria:");
+              if (!nome) return;
+              const grupo = prompt("Grupo (cmv / folha / impostos / aluguel / bancarias / outros):", "outros") ?? "outros";
+              const fd = new FormData(); fd.set("nome", nome); fd.set("grupo", grupo);
+              const r = await criarCategoria(fd);
+              if (r.ok && r.id) { setCategoria(r.id); window.location.reload(); }
+              else alert(r.erro ?? "erro");
+            }} className="text-[10px] text-vermelho hover:underline flex items-center gap-0.5">
+              <Plus size={10} /> nova
+            </button>
+          </label>
           <select value={categoria} onChange={(e) => setCategoria(e.target.value)}
             className="w-full px-3 py-2 border-3 border-preto rounded-lg bg-creme-claro">
             <option value="">— escolher —</option>

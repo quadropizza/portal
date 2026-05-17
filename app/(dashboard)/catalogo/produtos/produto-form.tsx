@@ -18,11 +18,12 @@ type Produto = {
 };
 
 export function ProdutoForm({
-  modo, produto, codigoSugerido,
+  modo, produto, codigoSugerido, categoriaSugerida,
 }: {
   modo: "novo" | "editar";
   produto?: Produto;
   codigoSugerido?: string;
+  categoriaSugerida?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -30,7 +31,7 @@ export function ProdutoForm({
 
   const [codigo, setCodigo] = useState(produto?.codigo ?? codigoSugerido ?? "");
   const [nome, setNome] = useState(produto?.nome ?? "");
-  const [categoria, setCategoria] = useState(produto?.categoria ?? "pizza_grande");
+  const [categoria, setCategoria] = useState(produto?.categoria ?? categoriaSugerida ?? "pizza_grande");
   const [preco, setPreco] = useState(produto?.preco_venda?.toString() ?? "");
   const [emLote, setEmLote] = useState(produto?.produzido_em_lote ?? true);
   const [ativo, setAtivo] = useState(produto?.ativo ?? true);
@@ -87,6 +88,7 @@ export function ProdutoForm({
             >
               <option value="pizza_grande">Pizza grande</option>
               <option value="pizza_mini">Pizza mini</option>
+              <option value="combo">Combo</option>
               <option value="bebida">Bebida</option>
               <option value="sobremesa">Sobremesa</option>
               <option value="outro">Outro</option>

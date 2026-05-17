@@ -107,6 +107,7 @@ export async function salvarObrigacaoManual(formData: FormData): Promise<{ ok: b
     empresa_id: empresaId,
     tipo: String(formData.get("tipo")),
     fornecedor_id: (formData.get("fornecedor_id") as string) || null,
+    categoria_id: (formData.get("categoria_id") as string) || null,
     numero: (formData.get("numero") as string) || null,
     data_vencimento: String(formData.get("vencimento")),
     valor_total: Number(formData.get("valor")),
@@ -115,6 +116,52 @@ export async function salvarObrigacaoManual(formData: FormData): Promise<{ ok: b
   if (id) await supabase.from("obrigacao_a_pagar").update(payload).eq("id", id);
   else await supabase.from("obrigacao_a_pagar").insert(payload);
   revalidatePath("/notas-fiscais");
+  return { ok: true };
+}
+
+/**
+ * Marca obrigação como paga, gerando saída automática vinculada à categoria.
+ * O trigger aplicar_pagamento_obrigacao do banco abate o valor_pago + concilia.
+ */
+export async function pagarObrigacao(formData: FormData): Promise<{ ok: boolean; erro?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, erro: "não auth" };
+  const { data: u } = await supabase.from("usuario").select("empresa_id").eq("id", user.id).maybeSingle();
+  const empresaId = (u as { empresa_id?: string } | null)?.empresa_id;
+  if (!empresaId) return { ok: false, erro: "sem empresa" };
+
+  const id = String(formData.get("id"));
+  const forma = String(formData.get("forma"));
+
+  const { data: obrig } = await supabase.from("obrigacao_a_pagar")
+    .select("*, fornecedor:fornecedor(id, nome, apelido)").eq("id", id).maybeSingle();
+  if (!obrig) return { ok: false, erro: "obrigação não encontrada" };
+  const o = obrig as any;
+  if (!o.categoria_id) return { ok: false, erro: "categoria obrigatória pra pagar" };
+
+  const restante = Number(o.valor_total) - Number(o.valor_pago);
+  if (restante <= 0) return { ok: false, erro: "já pago" };
+
+  const desc = `Pgto ${o.tipo === "nf_fornecedor" ? "NF" : o.tipo === "boleto_avulso" ? "Boleto" : o.tipo} ${o.numero ?? ""} · ${o.fornecedor?.apelido ?? o.fornecedor?.nome ?? ""}`.trim();
+
+  // Insere saída (trigger aplicar_pagamento_obrigacao concilia)
+  await supabase.from("saida").insert({
+    empresa_id: empresaId,
+    data: new Date().toISOString().split("T")[0],
+    descricao_original: desc,
+    descricao: desc,
+    valor: restante,
+    categoria_id: o.categoria_id,
+    fornecedor_id: o.fornecedor_id,
+    forma_pagamento: forma,
+    obrigacao_id: id,
+  });
+
+  revalidatePath("/notas-fiscais");
+  revalidatePath("/financeiro/saidas");
+  revalidatePath("/dre");
+  revalidatePath("/visao-geral");
   return { ok: true };
 }
 
