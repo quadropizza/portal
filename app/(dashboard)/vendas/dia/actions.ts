@@ -62,22 +62,26 @@ export async function uploadEParse(formData: FormData): Promise<{
 
   // 3. Parseia
   let parsed: ParseResult;
+  let textoBruto = "";
   try {
-    // dynamic import — pdf-parse só carrega no servidor
-    const pdfParse = (await import("pdf-parse")).default;
-    const data = await pdfParse(buf);
-    parsed = parsePdvText(data.text);
+    const { extractPdfText } = await import("@/lib/pdf-extract");
+    textoBruto = await extractPdfText(buf);
+    parsed = parsePdvText(textoBruto);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     await supabase.from("arquivo_anexo")
       .update({ parsing_erro: msg }).eq("id", anexoId);
-    return { ok: false, erro: `Parse: ${msg}` };
+    return { ok: false, erro: `Erro ao ler PDF: ${msg}. Tente reexportar do Fast Report.` };
   }
 
   if (parsed.vendas.length === 0) {
+    const preview = textoBruto.slice(0, 300).replace(/\n/g, " ").trim();
     await supabase.from("arquivo_anexo")
-      .update({ parsing_erro: "Nenhuma venda detectada no PDF." }).eq("id", anexoId);
-    return { ok: false, erro: "Nenhuma venda detectada — confira se é PDF do Fast Report." };
+      .update({ parsing_erro: `Nenhuma venda no PDF. Texto extraído: ${preview.slice(0,200)}` }).eq("id", anexoId);
+    return {
+      ok: false,
+      erro: `PDF lido (${textoBruto.length} chars) mas não achei vendas. Preview: "${preview.slice(0,150)}..."  ·  Confira se é "Relatório de venda detalhada" do Fast Report (status EFETIVADAS).`,
+    };
   }
 
   // 4. Mapa de produtos cadastrados (por codigo)

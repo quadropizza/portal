@@ -53,13 +53,19 @@ export async function uploadExtrato(formData: FormData): Promise<UploadExtratoRe
   const anexoId = (anexo as { id: string }).id;
 
   let parsed;
+  let textoBruto = "";
   try {
-    const pdfParse = (await import("pdf-parse")).default;
-    const data = await pdfParse(buf);
-    parsed = parseExtratoSicredi(data.text);
+    const { extractPdfText } = await import("@/lib/pdf-extract");
+    textoBruto = await extractPdfText(buf);
+    parsed = parseExtratoSicredi(textoBruto);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, erro: `Parse: ${msg}` };
+    return { ok: false, erro: `Erro ao ler PDF: ${msg}` };
+  }
+
+  if (parsed.saidas.length === 0) {
+    const preview = textoBruto.slice(0, 200).replace(/\n/g, " ");
+    return { ok: false, erro: `PDF lido mas sem saídas detectadas. Preview: "${preview}..." · Confira se é extrato Sicredi.` };
   }
 
   // Carrega fornecedores + regras automáticas pra sugerir categoria

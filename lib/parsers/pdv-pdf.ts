@@ -34,7 +34,12 @@ export type ParseResult = {
  * vendas estruturadas. Não escreve no banco — quem chama (a action) é que
  * persiste com idempotência (unique constraint em venda_individual).
  */
-export function parsePdvText(raw: string): ParseResult {
+export function parsePdvText(rawIn: string): ParseResult {
+  // Normaliza: junta "VENDA:" + número que aparece em linha separada (pdf2json)
+  const raw = rawIn
+    .replace(/VENDA:\s*\n+\s*(\d+)/g, "VENDA: $1")
+    .replace(/DATA DE EMISS\S+O:\s*\n+\s*(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}:\d{2})/g, "DATA DE EMISSÃO: $1");
+
   // Cada bloco começa em "VENDA: <id>" e vai até a próxima ocorrência
   const blockRe = /VENDA:\s+\d+[\s\S]*?(?=VENDA:\s+\d+|$)/g;
   const blocks = raw.match(blockRe) ?? [];

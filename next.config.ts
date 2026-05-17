@@ -4,9 +4,10 @@ const config: NextConfig = {
   experimental: {
     typedRoutes: true,
     serverActions: {
-      bodySizeLimit: "10mb", // PDFs do Fast Report ~ 3MB
+      bodySizeLimit: "10mb",
     },
   },
+  serverExternalPackages: ["pdf2json"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "*.supabase.co" },
