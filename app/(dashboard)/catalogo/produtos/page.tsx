@@ -90,7 +90,7 @@ export default async function CatalogoPage() {
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <EyebrowTitle eyebrow={`// ${produtos.length} PRODUTOS`} title="Catálogo" level={1} />
         <div className="flex gap-2">
-          <Link href="/catalogo/produtos/novo?categoria=combo">
+          <Link href="/catalogo/combos/novo">
             <Button variant="creme"><Plus size={14} /> Combo</Button>
           </Link>
           <Link href="/catalogo/produtos/novo">

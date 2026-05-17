@@ -2,7 +2,7 @@ import { EyebrowTitle } from "@/components/ui/eyebrow-title";
 import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import { ComboForm } from "../combo-form";
+import { ComboFormCompleto } from "../combo-form-completo";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +12,10 @@ export default async function EditarComboPage({ params }: { params: Promise<{ id
 
   const [comboR, componentesR, produtosR] = await Promise.all([
     supabase.from("produto").select("*").eq("id", id).maybeSingle(),
-    supabase.from("combo_componente")
-      .select("id, produto_id, quantidade, produto:produto(nome, categoria, preco_venda)")
-      .eq("combo_id", id),
-    supabase.from("produto").select("id, codigo, nome, categoria, preco_venda")
+    supabase.from("combo_componente").select("produto_id, quantidade").eq("combo_id", id),
+    supabase.from("produto")
+      .select(`id, codigo, nome, categoria, preco_venda,
+               fichas:ficha_tecnica(ativa, itens:ficha_tecnica_item(quantidade, insumo:insumo(custo_medio_atual)))`)
       .eq("ativo", true).is("deleted_at", null).neq("id", id).neq("categoria", "combo")
       .order("categoria").order("codigo"),
   ]);
@@ -23,17 +23,18 @@ export default async function EditarComboPage({ params }: { params: Promise<{ id
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <EyebrowTitle eyebrow="// COMBO" title={(comboR.data as any).nome} level={1} />
+      <EyebrowTitle eyebrow="// EDITAR COMBO" title={(comboR.data as any).nome} level={1} />
       <Card variant="creme">
         <p className="text-sm">
-          Combo é composto por outros produtos. <strong>Custo = soma dos custos</strong> (pizzas
-          pela ficha técnica, bebidas pelo custo cadastrado). <strong>Lucro = preço − custo total.</strong>
+          Combo monta-se a partir das <strong>fichas técnicas</strong> dos produtos componentes.
+          Custo total = soma das fichas. Lucro = preço − custo.
         </p>
       </Card>
-      <ComboForm
+      <ComboFormCompleto
+        modo="editar"
         combo={comboR.data as any}
-        componentes={(componentesR.data ?? []) as any}
         produtos={(produtosR.data ?? []) as any}
+        componentesIniciais={(componentesR.data ?? []) as any}
       />
     </div>
   );
