@@ -16,7 +16,7 @@ export default async function ConfigPage() {
   const template = (tpl.data ?? []) as any[];
 
   return (
-    <div className="space-y-8 max-w-3xl">
+    <div className="space-y-6 md:space-y-8 max-w-3xl">
       <EyebrowTitle eyebrow="// AJUSTAR" title="Configurações" level={1} />
 
       {empresa && (

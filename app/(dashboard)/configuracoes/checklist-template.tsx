@@ -47,25 +47,25 @@ export function ChecklistTemplate({ items }: { items: Item[] }) {
     <Card className="p-0 overflow-hidden">
       <ul>
         {items.map((it) => (
-          <li key={it.id} className={`px-4 py-2 border-t border-preto/5 first:border-t-0 flex items-center gap-2 text-sm ${!it.ativo ? "opacity-40" : ""}`}>
-            <input type="checkbox" checked={it.ativo} onChange={() => toggle(it)} disabled={pending} />
-            <span className="w-8 text-xs text-preto/40 font-[family-name:var(--font-mono)]">#{it.ordem}</span>
-            <span className="flex-1">{it.titulo}</span>
+          <li key={it.id} className={`px-3 py-2 border-t border-preto/5 first:border-t-0 flex items-center gap-2 text-sm ${!it.ativo ? "opacity-40" : ""}`}>
+            <input type="checkbox" checked={it.ativo} onChange={() => toggle(it)} disabled={pending} className="shrink-0" />
+            <span className="w-7 text-[10px] text-preto/40 font-[family-name:var(--font-mono)] shrink-0">#{it.ordem}</span>
+            <span className="flex-1 min-w-0 truncate">{it.titulo}</span>
             {it.dia_do_mes && (
-              <span className="text-xs text-preto/50 font-[family-name:var(--font-mono)]">dia {it.dia_do_mes}</span>
+              <span className="text-[10px] text-preto/50 font-[family-name:var(--font-mono)] shrink-0">d{it.dia_do_mes}</span>
             )}
-            <button onClick={() => remove(it.id)} className="text-preto/30 hover:text-vermelho">
+            <button onClick={() => remove(it.id)} className="text-preto/30 hover:text-vermelho shrink-0">
               <Trash2 size={14} />
             </button>
           </li>
         ))}
       </ul>
-      <div className="px-4 py-3 border-t-2 border-preto/10 bg-creme-claro flex gap-2">
+      <div className="px-3 py-3 border-t-2 border-preto/10 bg-creme-claro flex flex-wrap gap-2">
         <input
           value={novo.titulo ?? ""}
           onChange={(e) => setNovo({ ...novo, titulo: e.target.value })}
           placeholder="Novo item do checklist"
-          className="flex-1 px-2 py-1.5 border-2 border-preto rounded bg-white text-sm"
+          className="flex-1 min-w-[160px] px-2 py-1.5 border-2 border-preto rounded bg-white text-sm"
         />
         <input
           type="number" min="1" max="31"

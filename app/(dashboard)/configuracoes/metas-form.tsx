@@ -34,7 +34,7 @@ export function MetasForm({ empresa }: { empresa: any }) {
   return (
     <Card>
       <form onSubmit={salvar} className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="CMV máximo (%)" value={cmv} set={setCmv} hint="Acima dispara R001" />
           <Field label="Despesas op. máximo (%)" value={despesas} set={setDespesas} />
           <Field label="Ticket médio meta (R$)" value={ticket} set={setTicket} hint="Abaixo dispara R005" />

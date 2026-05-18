@@ -18,26 +18,27 @@ export default async function InsumosPage() {
   const seed = lista.filter((i) => i.custo_origem === "seed").length;
 
   return (
-    <div className="space-y-6 max-w-5xl">
-      <div className="flex items-end justify-between gap-3">
+    <div className="space-y-4 max-w-5xl">
+      <div className="flex items-end justify-between gap-2 flex-wrap">
         <EyebrowTitle eyebrow={`// ${lista.length} INSUMOS`} title="Estoque · insumos" level={1} />
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Link href="/estoque/contagem"><Button variant="creme">Contagem</Button></Link>
+          <Link href="/estoque/insumos/movimentar"><Button variant="creme">Lançar</Button></Link>
           <Link href="/estoque/insumos/novo"><Button variant="vermelho"><Plus size={14} /> Novo</Button></Link>
         </div>
       </div>
 
       {seed > 0 && (
         <Card variant="amarelo">
-          <div className="flex items-center gap-2 text-sm">
-            <AlertTriangle size={16} />
-            <strong>{seed}</strong> insumo(s) com custo "seed" (do .docx, não confirmado por NF).
-            Primeira NF-e processada vai substituir pelo custo real (§7.21).
+          <div className="flex items-start gap-2 text-sm">
+            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+            <span><strong>{seed}</strong> insumo(s) com custo &quot;seed&quot;. Primeira NF-e substitui pelo real.</span>
           </div>
         </Card>
       )}
 
-      <Card className="p-0 overflow-hidden">
+      {/* Desktop: tabela */}
+      <Card className="p-0 overflow-hidden hidden md:block">
         <table className="w-full text-sm">
           <thead className="text-xs font-[family-name:var(--font-mono)] text-preto/60 uppercase bg-creme-claro">
             <tr>
@@ -65,11 +66,42 @@ export default async function InsumosPage() {
               </tr>
             ))}
             {lista.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-6 text-center text-preto/50">Sem insumos. Rode o seed do banco.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-preto/50">Sem insumos.</td></tr>
             )}
           </tbody>
         </table>
       </Card>
+
+      {/* Mobile: cards verticais */}
+      <div className="md:hidden space-y-2">
+        {lista.map((i) => (
+          <Link key={i.id} href={`/estoque/insumos/${i.id}`}
+            className="block card-bruto bg-white active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0_#1A1410] transition-transform p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="font-[family-name:var(--font-subtitulo)] truncate">{i.nome}</div>
+                <div className="text-[11px] text-preto/60 font-[family-name:var(--font-mono)] mt-0.5">
+                  por {i.unidade_padrao}
+                  {i.ultima_compra_data && ` · última NF ${new Date(i.ultima_compra_data).toLocaleDateString("pt-BR")}`}
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="font-[family-name:var(--font-mono)] font-bold">
+                  {i.custo_medio_atual ? fmtBR(i.custo_medio_atual) : "—"}
+                </div>
+                <div className="text-[10px] mt-0.5">
+                  {i.custo_origem === "nf" && <span className="text-verde">✓ NF</span>}
+                  {i.custo_origem === "seed" && <span className="text-amarelo-escuro">seed</span>}
+                  {i.custo_origem === "manual" && <span className="text-preto/60">manual</span>}
+                </div>
+              </div>
+            </div>
+          </Link>
+        ))}
+        {lista.length === 0 && (
+          <Card variant="creme"><p className="text-sm text-preto/50 text-center">Sem insumos.</p></Card>
+        )}
+      </div>
     </div>
   );
 }
