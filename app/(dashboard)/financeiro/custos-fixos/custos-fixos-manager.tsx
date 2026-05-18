@@ -61,10 +61,12 @@ export function CustosFixosManager({ custos, pagamentosMes, categorias, forneced
     const dataStr = prompt("Data do pagamento (YYYY-MM-DD):", new Date().toISOString().split("T")[0]);
     if (!dataStr) return;
     const forma = prompt("Forma (pix / debito_conta / boleto / dinheiro):", custo.forma_pagamento) ?? "pix";
+    // Competência (ano/mês) = mês da data do pagamento
+    const d = new Date(dataStr);
     const fd = new FormData();
     fd.set("custo_id", custo.id); fd.set("valor", String(valor));
     fd.set("data", dataStr); fd.set("forma", forma);
-    fd.set("ano", String(ano)); fd.set("mes", String(mes));
+    fd.set("ano", String(d.getUTCFullYear())); fd.set("mes", String(d.getUTCMonth() + 1));
     startTransition(async () => {
       const r = await marcarCustoPago(fd);
       if (!r.ok) alert(r.erro);

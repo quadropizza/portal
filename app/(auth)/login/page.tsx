@@ -34,7 +34,7 @@ export default function LoginPage() {
       setErro("Usuário ou senha incorretos.");
       return;
     }
-    router.push("/visao-geral");
+    router.push("/");
     router.refresh();
   }
 

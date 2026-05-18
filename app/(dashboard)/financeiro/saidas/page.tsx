@@ -38,14 +38,62 @@ export default async function SaidasPage({
 
   const { data: saidas } = await q;
   const { data: cats } = await supabase.from("categoria_despesa").select("id, nome, grupo").eq("ativa", true).order("ordem");
+  const { data: proj } = await supabase.from("financeiro_projecao").select("*").maybeSingle();
 
   const lista = (saidas ?? []) as any[];
   const total = lista.reduce((s, x) => s + Number(x.valor), 0);
   const semCategoria = lista.filter((s) => !s.categoria).length;
+  const p: any = proj ?? {};
 
   return (
     <div className="space-y-6 max-w-6xl">
       <EyebrowTitle eyebrow="// FINANCEIRO" title="Saídas / Despesas" level={1} />
+
+      {/* Projeção mensal */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card>
+          <div className="eyebrow">Pago no mês</div>
+          <div className="text-xl md:text-2xl font-[family-name:var(--font-titulo)] text-vermelho">{fmtBR(Number(p.saidas_pagas_mes ?? 0))}</div>
+          <div className="text-[10px] text-preto/50 font-[family-name:var(--font-mono)] mt-1">desde dia 1</div>
+        </Card>
+        <Card>
+          <div className="eyebrow">Mês anterior</div>
+          <div className="text-xl md:text-2xl font-[family-name:var(--font-titulo)]">{fmtBR(Number(p.total_mes_anterior ?? 0))}</div>
+          <div className="text-[10px] text-preto/50 font-[family-name:var(--font-mono)] mt-1">total fechado</div>
+        </Card>
+        <Card className={Number(p.custos_fixos_pendente ?? 0) > 0 ? "border-amarelo-escuro border-[3px]" : ""}>
+          <div className="eyebrow">Custos fixos pendentes</div>
+          <div className="text-xl md:text-2xl font-[family-name:var(--font-titulo)] text-amarelo-escuro">{fmtBR(Number(p.custos_fixos_pendente ?? 0))}</div>
+          <div className="text-[10px] text-preto/50 font-[family-name:var(--font-mono)] mt-1">a pagar este mês</div>
+        </Card>
+        <Card className={Number(p.nfs_pendente ?? 0) > 0 ? "border-vermelho border-[3px]" : ""}>
+          <div className="eyebrow">NFs em aberto</div>
+          <div className="text-xl md:text-2xl font-[family-name:var(--font-titulo)] text-vermelho">{fmtBR(Number(p.nfs_pendente ?? 0))}</div>
+          <div className="text-[10px] text-preto/50 font-[family-name:var(--font-mono)] mt-1">{p.nfs_qtd ?? 0} obrigação(ões)</div>
+        </Card>
+      </section>
+
+      {/* Card projeção total destacado */}
+      <Card variant="amarelo">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <div className="eyebrow">// PROJEÇÃO TOTAL DO MÊS</div>
+            <div className="text-3xl md:text-4xl font-[family-name:var(--font-titulo)] mt-1">{fmtBR(Number(p.projecao_total ?? 0))}</div>
+            <div className="text-xs mt-1 font-[family-name:var(--font-mono)]">
+              pago {fmtBR(Number(p.saidas_pagas_mes ?? 0))} + fixos {fmtBR(Number(p.custos_fixos_pendente ?? 0))} + NFs {fmtBR(Number(p.nfs_pendente ?? 0))}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs eyebrow">vs mês anterior</div>
+            {Number(p.total_mes_anterior ?? 0) > 0 && (
+              <div className={`text-lg font-[family-name:var(--font-subtitulo)] ${Number(p.projecao_total ?? 0) > Number(p.total_mes_anterior ?? 0) ? "text-vermelho" : "text-verde"}`}>
+                {Number(p.projecao_total ?? 0) > Number(p.total_mes_anterior ?? 0) ? "+" : ""}
+                {((Number(p.projecao_total ?? 0) - Number(p.total_mes_anterior ?? 0)) / Number(p.total_mes_anterior ?? 1) * 100).toFixed(1)}%
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
 
       <UploadExtrato />
 
