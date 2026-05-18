@@ -82,6 +82,43 @@ export async function marcarPaga(formData: FormData): Promise<{ ok: boolean }> {
   return { ok: true };
 }
 
+export async function apagarItemFiado(formData: FormData): Promise<{ ok: boolean }> {
+  const supabase = await createClient();
+  const itemId = String(formData.get("item_id"));
+
+  const { data: item } = await supabase
+    .from("fiado_item").select("fiado_id, produto_id, quantidade, fiado:fiado(empresa_id)")
+    .eq("id", itemId).maybeSingle();
+  if (!item) return { ok: false };
+  const it = item as any;
+
+  // Estorna estoque (se for pizza, devolve qtd)
+  const { data: prod } = await supabase.from("produto").select("produzido_em_lote").eq("id", it.produto_id).maybeSingle();
+  if (prod && (prod as any).produzido_em_lote) {
+    await supabase.from("estoque_pizza_movimento").insert({
+      empresa_id: it.fiado.empresa_id,
+      data_hora: new Date().toISOString(),
+      produto_id: it.produto_id,
+      tipo: "ajuste_contagem",
+      quantidade: it.quantidade, // positivo = devolve ao estoque
+      origem_tipo: "fiado_estorno",
+      origem_id: it.fiado_id,
+      observacao: "Estorno item fiado apagado",
+    });
+  }
+
+  await supabase.from("fiado_item").delete().eq("id", itemId);
+
+  // Recalcula total
+  const { data: items } = await supabase.from("fiado_item").select("valor_total").eq("fiado_id", it.fiado_id);
+  const total = ((items ?? []) as any[]).reduce((s, x) => s + Number(x.valor_total), 0);
+  await supabase.from("fiado").update({ total }).eq("id", it.fiado_id);
+
+  revalidatePath(`/fiados/${it.fiado_id}`);
+  revalidatePath("/fiados");
+  return { ok: true };
+}
+
 export async function deletarFiado(formData: FormData) {
   const id = String(formData.get("id"));
   const supabase = await createClient();

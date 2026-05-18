@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, MessageCircle, CheckCircle2, Trash2 } from "lucide-react";
 import { fmtBR, fmtDataBR } from "@/lib/utils";
-import { adicionarItem, fecharComanda, marcarPaga, deletarFiado } from "./actions";
+import { adicionarItem, fecharComanda, marcarPaga, deletarFiado, apagarItemFiado } from "./actions";
 
 const PIX_KEY = "60723998000184";
 
@@ -106,14 +106,23 @@ export function ComandaDetalhe({ fiado, items, produtos }: { fiado: Fiado; items
           {items.map((i) => {
             const hora = new Date(i.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
             return (
-              <li key={i.id} className="py-2 flex items-center gap-3 text-sm">
+              <li key={i.id} className="py-2 flex items-center gap-2 text-sm">
                 <span className="w-8 text-center font-[family-name:var(--font-mono)] font-bold">{i.quantidade}×</span>
-                <span className="flex-1">
-                  {i.produto.nome}
-                  <span className="text-[10px] text-preto/40 font-[family-name:var(--font-mono)] ml-2">{hora}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block truncate">{i.produto.nome}</span>
+                  <span className="text-[10px] text-preto/40 font-[family-name:var(--font-mono)]">{hora}</span>
                 </span>
-                <span className="text-xs text-preto/50 font-[family-name:var(--font-mono)]">{fmtBR(i.valor_unitario)}</span>
-                <span className="w-24 text-right font-[family-name:var(--font-subtitulo)]">{fmtBR(i.valor_total)}</span>
+                <span className="text-xs text-preto/50 font-[family-name:var(--font-mono)] hidden sm:inline">{fmtBR(i.valor_unitario)}</span>
+                <span className="w-20 text-right font-[family-name:var(--font-subtitulo)]">{fmtBR(i.valor_total)}</span>
+                {fiado.status === "aberto" && (
+                  <button onClick={() => {
+                    if (!confirm(`Apagar ${i.quantidade}× ${i.produto.nome}?`)) return;
+                    const fd = new FormData(); fd.set("item_id", i.id);
+                    startTransition(async () => { await apagarItemFiado(fd); router.refresh(); });
+                  }} className="text-preto/30 hover:text-vermelho p-1" title="Apagar item">
+                    <Trash2 size={12} />
+                  </button>
+                )}
               </li>
             );
           })}
