@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function ContagemPizzaPage() {
   const supabase = await createClient();
 
-  // Pizzas (produzidas em lote) com estoque calculado
+  // Pizzas SALGADAS prontas (produzidas em lote)
   const { data: pizzas } = await supabase
     .from("produto")
     .select("id, codigo, nome, categoria")
@@ -18,15 +18,30 @@ export default async function ContagemPizzaPage() {
     .is("deleted_at", null)
     .order("categoria").order("codigo");
 
-  // Estoque atual de cada pizza (soma movimentos)
-  const { data: mov } = await supabase
-    .from("estoque_pizza_movimento")
-    .select("produto_id, quantidade")
-    .is("deleted_at", null);
+  // Massas (insumo) — também contadas aqui pois servem pras pizzas doces
+  const { data: massas } = await supabase
+    .from("insumo")
+    .select("id, nome, unidade_padrao")
+    .in("nome", ["Massa mini", "Massa quadrô grande"])
+    .eq("ativo", true).is("deleted_at", null);
 
+  // Estoque atual pizzas (soma movimentos)
+  const { data: movPizza } = await supabase
+    .from("estoque_pizza_movimento")
+    .select("produto_id, quantidade").is("deleted_at", null);
   const estoque = new Map<string, number>();
-  for (const m of ((mov ?? []) as Array<{ produto_id: string; quantidade: number }>)) {
+  for (const m of ((movPizza ?? []) as any[])) {
     estoque.set(m.produto_id, (estoque.get(m.produto_id) ?? 0) + Number(m.quantidade));
+  }
+
+  // Estoque de massas (insumo)
+  const { data: movInsumo } = await supabase
+    .from("estoque_insumo_movimento")
+    .select("insumo_id, quantidade").is("deleted_at", null)
+    .in("insumo_id", ((massas ?? []) as any[]).map((m) => m.id));
+  const estoqueMassa = new Map<string, number>();
+  for (const m of ((movInsumo ?? []) as any[])) {
+    estoqueMassa.set(m.insumo_id, (estoqueMassa.get(m.insumo_id) ?? 0) + Number(m.quantidade));
   }
 
   const { data: contagens } = await supabase
@@ -58,6 +73,7 @@ export default async function ContagemPizzaPage() {
       </Card>
 
       <ContagemPizzaForm
+        massas={((massas ?? []) as any[]).map((m: any) => ({ id: m.id, nome: m.nome, qtd: estoqueMassa.get(m.id) ?? 0 }))}
         pizzas={(pizzas ?? []) as any}
         estoqueAtual={Array.from(estoque.entries()).map(([id, qtd]) => ({ id, qtd }))}
       />

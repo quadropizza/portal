@@ -9,13 +9,17 @@ export const dynamic = "force-dynamic";
 export default async function ProducaoPage() {
   const supabase = await createClient();
 
-  const [produtos, lotes] = await Promise.all([
+  const [produtos, lotes, massas] = await Promise.all([
     supabase.from("produto").select("id, codigo, nome, categoria")
       .eq("produzido_em_lote", true).eq("ativo", true).is("deleted_at", null)
       .order("categoria").order("codigo"),
     supabase.from("producao_lote")
       .select("id, data, produtor_nome, observacoes, itens:producao_lote_item(produto_id, quantidade, produto:produto(nome))")
       .is("deleted_at", null).order("data", { ascending: false }).limit(10),
+    supabase.from("insumo")
+      .select("id, nome, unidade_padrao")
+      .in("nome", ["Massa mini", "Massa quadrô grande"])
+      .eq("ativo", true).is("deleted_at", null),
   ]);
 
   return (
@@ -27,8 +31,15 @@ export default async function ProducaoPage() {
           de pizza pronta</strong> e <strong>baixa os insumos</strong> automaticamente
           via ficha técnica ativa.
         </p>
+        <p className="text-xs mt-2 text-preto/60 font-[family-name:var(--font-mono)]">
+          ⚠️ Pizzas doces são só massa — lance a quantidade de Massa mini / Massa quadrô grande
+          produzida e o recheio fica pra hora do pedido.
+        </p>
       </Card>
-      <ProducaoForm produtos={(produtos.data ?? []) as any} />
+      <ProducaoForm
+        produtos={(produtos.data ?? []) as any}
+        massas={(massas.data ?? []) as any}
+      />
 
       {((lotes.data ?? []) as any[]).length > 0 && (
         <section className="space-y-2">
