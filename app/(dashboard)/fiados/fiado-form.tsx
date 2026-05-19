@@ -47,7 +47,7 @@ export function FiadoForm({ produtos }: { produtos: Produto[] }) {
   return (
     <form onSubmit={salvar} className="space-y-4">
       <Card>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="eyebrow block mb-1">Nome do cliente</label>
             <input required value={nome} onChange={(e) => setNome(e.target.value)}
@@ -64,21 +64,23 @@ export function FiadoForm({ produtos }: { produtos: Produto[] }) {
 
       <Card>
         <div className="eyebrow mb-2">// ITENS DA COMANDA</div>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {items.map((it, i) => {
             const p = prodMap.get(it.produto_id);
             return (
-              <div key={i} className="flex items-center gap-2">
+              <div key={i} className="border-2 border-preto/10 rounded-lg p-2 space-y-2 sm:border-0 sm:p-0 sm:space-y-0 sm:flex sm:items-center sm:gap-2">
                 <select value={it.produto_id} onChange={(e) => updateItem(i, { produto_id: e.target.value })}
-                  className="flex-1 px-2 py-1.5 border-2 border-preto rounded bg-creme-claro text-sm">
+                  className="w-full sm:flex-1 sm:min-w-0 px-2 py-2 border-2 border-preto rounded bg-creme-claro text-sm">
                   {produtos.map((pr) => <option key={pr.id} value={pr.id}>{pr.nome} ({fmtBR(pr.preco_venda ?? 0)})</option>)}
                 </select>
-                <input type="number" min="1" value={it.quantidade} onChange={(e) => updateItem(i, { quantidade: Number(e.target.value) })}
-                  className="w-16 px-2 py-1.5 border-2 border-preto rounded bg-creme-claro text-right font-[family-name:var(--font-mono)]" />
-                <span className="w-20 text-right text-sm font-[family-name:var(--font-subtitulo)]">
-                  {fmtBR(Number(p?.preco_venda ?? 0) * it.quantidade)}
-                </span>
-                <button type="button" onClick={() => removeItem(i)} className="text-preto/40 hover:text-vermelho"><X size={14} /></button>
+                <div className="flex items-center gap-2 sm:contents">
+                  <input type="number" min="1" value={it.quantidade} onChange={(e) => updateItem(i, { quantidade: Number(e.target.value) })}
+                    className="w-16 px-2 py-2 border-2 border-preto rounded bg-creme-claro text-right font-[family-name:var(--font-mono)]" />
+                  <span className="flex-1 sm:flex-none sm:w-20 text-right text-sm font-[family-name:var(--font-subtitulo)]">
+                    {fmtBR(Number(p?.preco_venda ?? 0) * it.quantidade)}
+                  </span>
+                  <button type="button" onClick={() => removeItem(i)} className="text-preto/40 hover:text-vermelho p-1"><X size={16} /></button>
+                </div>
               </div>
             );
           })}

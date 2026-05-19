@@ -130,15 +130,15 @@ export function ComandaDetalhe({ fiado, items, produtos }: { fiado: Fiado; items
 
         {fiado.status === "aberto" && (
           <div className="mt-3 pt-3 border-t-2 border-preto/10 space-y-2">
+            <select value={novoProd} onChange={(e) => setNovoProd(e.target.value)}
+              className="w-full px-2 py-2 border-2 border-preto rounded bg-creme-claro text-sm">
+              {produtos.map((p) => <option key={p.id} value={p.id}>{p.nome} ({fmtBR(p.preco_venda)})</option>)}
+            </select>
             <div className="flex items-center gap-2 flex-wrap">
-              <select value={novoProd} onChange={(e) => setNovoProd(e.target.value)}
-                className="flex-1 min-w-[200px] px-2 py-1.5 border-2 border-preto rounded bg-creme-claro text-sm">
-                {produtos.map((p) => <option key={p.id} value={p.id}>{p.nome} ({fmtBR(p.preco_venda)})</option>)}
-              </select>
               <input type="number" min="1" value={novaQtd} onChange={(e) => setNovaQtd(Number(e.target.value))}
-                className="w-16 px-2 py-1.5 border-2 border-preto rounded bg-creme-claro text-right font-[family-name:var(--font-mono)]" />
+                className="w-16 px-2 py-2 border-2 border-preto rounded bg-creme-claro text-right font-[family-name:var(--font-mono)]" />
               <input type="datetime-local" value={novaData} onChange={(e) => setNovaData(e.target.value)}
-                className="px-2 py-1.5 border-2 border-preto rounded bg-creme-claro text-xs font-[family-name:var(--font-mono)]" />
+                className="flex-1 min-w-0 px-2 py-2 border-2 border-preto rounded bg-creme-claro text-xs font-[family-name:var(--font-mono)]" />
               <button type="button" onClick={add} disabled={pending} className="btn-bruto"><Plus size={14} /> add</button>
             </div>
             <div className="text-[10px] text-preto/50 font-[family-name:var(--font-mono)]">data/hora do consumo · ajusta se foi antes</div>
