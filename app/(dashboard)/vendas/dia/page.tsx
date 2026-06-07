@@ -6,6 +6,7 @@ import { fmtBR, fmtDataBR } from "@/lib/utils";
 import { FileText, CheckCircle2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 120; // relatório do mês inteiro: parse + bulk insert
 
 export default async function VendasDiaPage() {
   const supabase = await createClient();

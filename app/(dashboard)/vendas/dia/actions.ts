@@ -103,52 +103,84 @@ export async function uploadEParse(formData: FormData): Promise<{
     ((existentes ?? []) as Array<{ pdv_id: string }>).map((e) => e.pdv_id),
   );
 
-  // 6. Inserir vendas novas
+  // 6. Inserir vendas novas — em LOTES (bulk), não uma a uma.
+  //    Relatório do mês inteiro tem ~1400 vendas; insert sequencial estourava
+  //    o timeout da function no Vercel. Geramos o UUID aqui pra montar os items
+  //    sem precisar do retorno de cada insert.
   const novas = parsed.vendas.filter((v) => !jaExiste.has(v.pdv_id));
-  let inseridas = 0;
   const produtosSemCadastro = new Map<string, { codigo: string; nome: string; qtd: number }>();
 
-  for (const v of novas) {
-    const { data: vendaIns, error: vendaErr } = await supabase
-      .from("venda_individual")
-      .insert({
-        empresa_id: empresaId,
-        pdv_id: v.pdv_id,
-        data_hora: v.data_hora,
-        total: v.total,
-        forma_pagamento: v.forma_pagamento,
-        arquivo_origem_id: anexoId,
-      })
-      .select("id")
-      .single();
-    if (vendaErr) continue;
-    const vendaId = (vendaIns as { id: string }).id;
+  const CHUNK = 500;
+  function chunk<T>(arr: T[], size: number): T[][] {
+    const out: T[][] = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
+  }
 
-    // Items
-    if (v.items.length > 0) {
-      const itemRows = v.items.map((it) => {
-        const prodId = codToId.get(it.codigo) ?? null;
-        if (!prodId) {
-          const cur = produtosSemCadastro.get(it.codigo);
-          produtosSemCadastro.set(it.codigo, {
-            codigo: it.codigo,
-            nome: it.nome,
-            qtd: (cur?.qtd ?? 0) + it.qtd,
-          });
-        }
-        return {
-          venda_individual_id: vendaId,
-          produto_id: prodId,
-          produto_codigo_origem: it.codigo,
-          produto_nome_origem: it.nome,
-          quantidade: it.qtd,
-          valor_unitario: it.qtd > 0 ? it.total / it.qtd : null,
-          valor_total: it.total,
-        };
+  // Monta linhas de venda (com id gerado) e de items numa passada só.
+  const vendaRows: Array<{
+    id: string; empresa_id: string; pdv_id: string; data_hora: string;
+    total: number; forma_pagamento: string | null; arquivo_origem_id: string;
+  }> = [];
+  const itemRows: Array<{
+    venda_individual_id: string; produto_id: string | null;
+    produto_codigo_origem: string; produto_nome_origem: string;
+    quantidade: number; valor_unitario: number | null; valor_total: number;
+  }> = [];
+
+  for (const v of novas) {
+    const vendaId = crypto.randomUUID();
+    vendaRows.push({
+      id: vendaId,
+      empresa_id: empresaId,
+      pdv_id: v.pdv_id,
+      data_hora: v.data_hora,
+      total: v.total,
+      forma_pagamento: v.forma_pagamento,
+      arquivo_origem_id: anexoId,
+    });
+    for (const it of v.items) {
+      const prodId = codToId.get(it.codigo) ?? null;
+      if (!prodId) {
+        const cur = produtosSemCadastro.get(it.codigo);
+        produtosSemCadastro.set(it.codigo, {
+          codigo: it.codigo,
+          nome: it.nome,
+          qtd: (cur?.qtd ?? 0) + it.qtd,
+        });
+      }
+      itemRows.push({
+        venda_individual_id: vendaId,
+        produto_id: prodId,
+        produto_codigo_origem: it.codigo,
+        produto_nome_origem: it.nome,
+        quantidade: it.qtd,
+        valor_unitario: it.qtd > 0 ? it.total / it.qtd : null,
+        valor_total: it.total,
       });
-      await supabase.from("venda_individual_item").insert(itemRows);
     }
-    inseridas++;
+  }
+
+  // Insere vendas em lotes. Se um lote falhar, aborta com mensagem clara.
+  let inseridas = 0;
+  for (const lote of chunk(vendaRows, CHUNK)) {
+    const { error: vendaErr } = await supabase.from("venda_individual").insert(lote);
+    if (vendaErr) {
+      await supabase.from("arquivo_anexo")
+        .update({ parsing_erro: `Insert vendas: ${vendaErr.message}` }).eq("id", anexoId);
+      return { ok: false, erro: `Erro ao gravar vendas: ${vendaErr.message}` };
+    }
+    inseridas += lote.length;
+  }
+
+  // Insere items em lotes (só depois das vendas — FK).
+  for (const lote of chunk(itemRows, CHUNK)) {
+    const { error: itemErr } = await supabase.from("venda_individual_item").insert(lote);
+    if (itemErr) {
+      await supabase.from("arquivo_anexo")
+        .update({ parsing_erro: `Insert items: ${itemErr.message}` }).eq("id", anexoId);
+      return { ok: false, erro: `Erro ao gravar itens das vendas: ${itemErr.message}` };
+    }
   }
 
   // 7. Agregar venda_diaria por data
@@ -166,21 +198,22 @@ export async function uploadEParse(formData: FormData): Promise<{
     else agg.outros += v.total;
     porDia.set(dia, agg);
   }
-  for (const [dia, agg] of porDia.entries()) {
+  const diariasRows = [...porDia.entries()].map(([dia, agg]) => ({
+    empresa_id: empresaId,
+    data: dia,
+    qtd_vendas: agg.qtd,
+    faturamento_bruto: agg.fat,
+    pagamento_dinheiro: agg.dinheiro,
+    pagamento_pix: agg.pix,
+    pagamento_cartao_credito: agg.credito,
+    pagamento_cartao_debito: agg.debito,
+    pagamento_voucher: agg.voucher,
+    pagamento_outros: agg.outros,
+    arquivo_origem_id: anexoId,
+  }));
+  if (diariasRows.length > 0) {
     await supabase.from("venda_diaria")
-      .upsert({
-        empresa_id: empresaId,
-        data: dia,
-        qtd_vendas: agg.qtd,
-        faturamento_bruto: agg.fat,
-        pagamento_dinheiro: agg.dinheiro,
-        pagamento_pix: agg.pix,
-        pagamento_cartao_credito: agg.credito,
-        pagamento_cartao_debito: agg.debito,
-        pagamento_voucher: agg.voucher,
-        pagamento_outros: agg.outros,
-        arquivo_origem_id: anexoId,
-      }, { onConflict: "empresa_id,data" });
+      .upsert(diariasRows, { onConflict: "empresa_id,data" });
   }
 
   // 8. Marca anexo como parsed

@@ -22,10 +22,18 @@ export function UploadForm() {
     fd.set("arquivo", arquivo);
     setResultado(null);
     startTransition(async () => {
-      const r = await uploadEParse(fd);
-      setResultado(r);
-      if (r.ok && fileRef.current) fileRef.current.value = "";
-      if (r.ok) setArquivo(null);
+      try {
+        const r = await uploadEParse(fd);
+        setResultado(r);
+        if (r.ok && fileRef.current) fileRef.current.value = "";
+        if (r.ok) setArquivo(null);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setResultado({
+          ok: false,
+          erro: `Falhou ao processar (${msg || "sem detalhe"}). Se o relatório é do mês inteiro, pode ter dado timeout — tente subir por dia ou avise pra gente.`,
+        });
+      }
     });
   }
 
