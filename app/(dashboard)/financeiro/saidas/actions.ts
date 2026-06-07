@@ -145,14 +145,17 @@ export async function uploadExtrato(formData: FormData): Promise<UploadExtratoRe
 
 /**
  * Persiste em lote as saídas já revisadas pelo usuário.
+ * Idempotente: pula saídas que já existem no banco (mesma data + valor +
+ * descrição) e duplicatas dentro do próprio lote. Evita duplicar quando dois
+ * extratos têm dias em comum ou o mesmo lote é confirmado duas vezes.
  */
-export async function confirmarSaidas(formData: FormData): Promise<{ ok: boolean; inseridas: number; erro?: string }> {
+export async function confirmarSaidas(formData: FormData): Promise<{ ok: boolean; inseridas: number; ignoradas: number; erro?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false, inseridas: 0, erro: "não auth" };
+  if (!user) return { ok: false, inseridas: 0, ignoradas: 0, erro: "não auth" };
   const { data: u } = await supabase.from("usuario").select("empresa_id").eq("id", user.id).maybeSingle();
   const empresaId = (u as { empresa_id?: string } | null)?.empresa_id;
-  if (!empresaId) return { ok: false, inseridas: 0, erro: "sem empresa" };
+  if (!empresaId) return { ok: false, inseridas: 0, ignoradas: 0, erro: "sem empresa" };
 
   const anexoId = String(formData.get("arquivo_id"));
   const payload = JSON.parse(String(formData.get("saidas"))) as Array<{
@@ -161,9 +164,34 @@ export async function confirmarSaidas(formData: FormData): Promise<{ ok: boolean
     forma_pagamento: string;
   }>;
 
-  let inseridas = 0;
+  // chave de duplicidade: data + valor (2 casas) + descrição normalizada
+  const chave = (data: string, valor: number, desc: string) =>
+    `${data}|${Number(valor).toFixed(2)}|${(desc ?? "").trim().toUpperCase()}`;
+
+  // Saídas que já existem no banco nas mesmas datas do lote
+  const datas = [...new Set(payload.map((s) => s.data))];
+  const jaExiste = new Set<string>();
+  if (datas.length > 0) {
+    const { data: existentes } = await supabase
+      .from("saida")
+      .select("data, valor, descricao_original")
+      .eq("empresa_id", empresaId)
+      .is("deleted_at", null)
+      .in("data", datas);
+    for (const e of (existentes ?? []) as Array<{ data: string; valor: number; descricao_original: string }>) {
+      jaExiste.add(chave(e.data, e.valor, e.descricao_original));
+    }
+  }
+
+  // Monta linhas novas, pulando duplicatas (banco + dentro do lote)
+  const vistos = new Set<string>();
+  let ignoradas = 0;
+  const rows = [];
   for (const s of payload) {
-    const { error } = await supabase.from("saida").insert({
+    const k = chave(s.data, s.valor, s.descricao_original);
+    if (jaExiste.has(k) || vistos.has(k)) { ignoradas++; continue; }
+    vistos.add(k);
+    rows.push({
       empresa_id: empresaId,
       data: s.data,
       descricao_original: s.descricao_original,
@@ -175,14 +203,20 @@ export async function confirmarSaidas(formData: FormData): Promise<{ ok: boolean
       arquivo_origem_id: anexoId,
       obrigacao_id: s.obrigacao_id ?? null,
     });
-    if (!error) inseridas++;
+  }
+
+  let inseridas = 0;
+  if (rows.length > 0) {
+    const { error } = await supabase.from("saida").insert(rows);
+    if (error) return { ok: false, inseridas: 0, ignoradas, erro: error.message };
+    inseridas = rows.length;
   }
 
   await supabase.from("arquivo_anexo").update({ parsed: true }).eq("id", anexoId);
   revalidatePath("/financeiro/saidas");
   revalidatePath("/dre");
   revalidatePath("/visao-geral");
-  return { ok: true, inseridas };
+  return { ok: true, inseridas, ignoradas };
 }
 
 export async function salvarSaidaManual(formData: FormData): Promise<{ ok: boolean; erro?: string }> {

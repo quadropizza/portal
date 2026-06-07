@@ -12,6 +12,7 @@ export function UploadExtrato() {
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<UploadExtratoResult | null>(null);
   const [editados, setEditados] = useState<Map<number, Partial<{ categoria_id: string; ignorar: boolean }>>>(new Map());
+  const [confirmacao, setConfirmacao] = useState<{ inseridas: number; ignoradas: number } | null>(null);
 
   function processar(e: React.FormEvent) {
     e.preventDefault();
@@ -45,10 +46,12 @@ export function UploadExtrato() {
     const fd = new FormData();
     fd.set("arquivo_id", result.preview.arquivo_id);
     fd.set("saidas", JSON.stringify(payload));
+    setConfirmacao(null);
     startTransition(async () => {
-      await confirmarSaidas(fd);
+      const r = await confirmarSaidas(fd);
       setResult(null);
       setArquivo(null);
+      if (r.ok) setConfirmacao({ inseridas: r.inseridas, ignoradas: r.ignoradas });
     });
   }
 
@@ -94,6 +97,20 @@ export function UploadExtrato() {
       {result && !result.ok && (
         <Card className="border-vermelho bg-vermelho/5">
           <div className="flex items-center gap-2"><AlertTriangle size={16} className="text-vermelho" /> {result.erro}</div>
+        </Card>
+      )}
+
+      {confirmacao && (
+        <Card className="border-verde bg-verde/5">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-verde" />
+            <span className="text-sm">
+              <strong>{confirmacao.inseridas} saída(s) lançada(s).</strong>
+              {confirmacao.ignoradas > 0 && (
+                <span className="text-preto/60"> {confirmacao.ignoradas} já existiam e foram ignoradas (sem duplicar).</span>
+              )}
+            </span>
+          </div>
         </Card>
       )}
 
