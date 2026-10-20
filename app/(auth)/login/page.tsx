@@ -27,7 +27,9 @@ export default function LoginPage() {
     e.preventDefault();
     setErro(null);
     setLoading(true);
-    const email = usuario.trim().toLowerCase() + SUFIXO_EMAIL;
+    // aceita também o e-mail completo (ex.: login criado com e-mail real)
+    const digitado = usuario.trim().toLowerCase();
+    const email = digitado.includes("@") ? digitado : digitado + SUFIXO_EMAIL;
     const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
     setLoading(false);
     if (error) {
